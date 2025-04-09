@@ -1,0 +1,221 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.sidebar-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 350px;
+  height: 100vh;
+  background: white;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #dadce0;
+}
+
+.header h1 {
+  font-size: 18px;
+  color: #1a73e8;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #5f6368;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+}
+
+.icon-button:hover {
+  background-color: #f1f3f4;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #dadce0;
+}
+
+.tab-button {
+  flex: 1;
+  padding: 12px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #5f6368;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.tab-button.active {
+  color: #1a73e8;
+  border-bottom-color: #1a73e8;
+}
+
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tab-panel {
+  display: none;
+  padding: 16px;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+/* Upload Section */
+.upload-box {
+  border: 2px dashed #dadce0;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  margin: 16px 0;
+  transition: border-color 0.2s;
+}
+
+.upload-box.drag-over {
+  border-color: #1a73e8;
+  background-color: #f8f9fa;
+}
+
+.upload-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.file-list {
+  margin-top: 16px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+/* Brain Dump Section */
+#braindump-input {
+  width: 100%;
+  height: 200px;
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+/* Outline Section */
+.outline-sections {
+  padding: 10px;
+}
+
+.outline-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.outline-section h3 {
+  color: #2c3e50;
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+}
+
+.outline-section ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.outline-section li {
+  margin-bottom: 8px;
+  line-height: 1.4;
+  color: #34495e;
+}
+
+.suggested-length {
+  font-size: 0.9em;
+  color: #7f8c8d;
+  margin-top: 10px;
+  margin-bottom: 0;
+  font-style: italic;
+}
+
+.writing-recommendations {
+  background: #e8f4f8;
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 20px;
+}
+
+.writing-recommendations h3 {
+  color: #2980b9;
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+}
+
+.writing-recommendations ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.writing-recommendations li {
+  margin-bottom: 8px;
+  line-height: 1.4;
+  color: #34495e;
+}
+
+/* Buttons */
+.primary-button {
+  background-color: #1a73e8;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.primary-button:hover {
+  background-color: #1557b0;
+}
+
+.secondary-button {
+  background-color: #f8f9fa;
+  color: #202124;
+  border: 1px solid #dadce0;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.secondary-button:hover {
+  background-color: #f1f3f4;
+} 

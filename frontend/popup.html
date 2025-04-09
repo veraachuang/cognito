@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WriteAI Assistant</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>WriteAI Assistant</h1>
+    <div class="status-container">
+      <div class="status">
+        <span class="status-label">Status:</span>
+        <span id="connection-status">Not connected</span>
+      </div>
+      <button id="toggle-sidebar" class="primary-button">Open Assistant</button>
+    </div>
+    <div class="divider"></div>
+    <div class="info-section">
+      <h2>Quick Actions</h2>
+      <button id="upload-docs" class="secondary-button">
+        <span class="icon">📄</span>
+        Upload Reference Documents
+      </button>
+      <button id="create-outline" class="secondary-button">
+        <span class="icon">📝</span>
+        Create New Outline
+      </button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html> 

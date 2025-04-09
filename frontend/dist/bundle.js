@@ -1,0 +1,32 @@
+/*
+ * ATTENTION: The "eval" devtool has been used (maybe by default in mode: "development").
+ * This devtool is neither made for production nor for readable output files.
+ * It uses "eval()" calls to create a separate source file in the browser devtools.
+ * If you are trying to read the output file, select a different devtool (https://webpack.js.org/configuration/devtool/)
+ * or disable the default devtool with "devtool: false".
+ * If you are looking for production-ready output files, see mode: "production" (https://webpack.js.org/configuration/mode/).
+ */
+/******/ (() => { // webpackBootstrap
+/******/ 	var __webpack_modules__ = ({
+
+/***/ "./sidebar.js":
+/*!********************!*\
+  !*** ./sidebar.js ***!
+  \********************/
+/***/ (() => {
+
+eval("document.addEventListener('DOMContentLoaded', () => {\n  // Elements\n  const closeBtn = document.getElementById('close-sidebar');\n  const tabButtons = document.querySelectorAll('.tab-button');\n  const tabPanels = document.querySelectorAll('.tab-panel');\n  const uploadDropzone = document.getElementById('upload-dropzone');\n  const fileInput = document.getElementById('file-input');\n  const uploadButton = document.getElementById('upload-button');\n  const uploadedFiles = document.getElementById('uploaded-files');\n  const braindumpInput = document.getElementById('braindump-input');\n  const analyzeButton = document.getElementById('analyze-button');\n  const regenerateOutline = document.getElementById('regenerate-outline');\n  const applyOutline = document.getElementById('apply-outline');\n  const outlineContainer = document.getElementById('outline-container');\n\n  // Close sidebar\n  closeBtn.addEventListener('click', () => {\n    window.parent.postMessage({ action: 'closeSidebar' }, '*');\n  });\n\n  // Tab switching\n  tabButtons.forEach(button => {\n    button.addEventListener('click', () => {\n      const tabId = button.dataset.tab;\n      switchTab(tabId);\n    });\n  });\n\n  function switchTab(tabId) {\n    tabButtons.forEach(btn => {\n      btn.classList.toggle('active', btn.dataset.tab === tabId);\n    });\n    \n    tabPanels.forEach(panel => {\n      panel.classList.toggle('active', panel.id === tabId);\n    });\n  }\n\n  // File upload handling\n  uploadButton.addEventListener('click', () => {\n    fileInput.click();\n  });\n\n  fileInput.addEventListener('change', (e) => {\n    handleFiles(e.target.files);\n  });\n\n  // Drag and drop handling\n  uploadDropzone.addEventListener('dragover', (e) => {\n    e.preventDefault();\n    uploadDropzone.classList.add('drag-over');\n  });\n\n  uploadDropzone.addEventListener('dragleave', () => {\n    uploadDropzone.classList.remove('drag-over');\n  });\n\n  uploadDropzone.addEventListener('drop', (e) => {\n    e.preventDefault();\n    uploadDropzone.classList.remove('drag-over');\n    handleFiles(e.dataTransfer.files);\n  });\n\n  function handleFiles(files) {\n    // Display files in the list\n    Array.from(files).forEach(file => {\n      const fileItem = document.createElement('div');\n      fileItem.className = 'file-item';\n      fileItem.innerHTML = `\n        <span class=\"file-icon\">📄</span>\n        <span class=\"file-name\">${file.name}</span>\n      `;\n      uploadedFiles.appendChild(fileItem);\n    });\n\n    // Send files to content script\n    window.parent.postMessage({\n      action: 'uploadFiles',\n      data: { files: Array.from(files) }\n    }, '*');\n  }\n\n  // Brain dump and outline generation\n  analyzeButton.addEventListener('click', async () => {\n    const text = braindumpInput.value.trim();\n    if (!text) return;\n\n    try {\n      const response = await fetch('http://localhost:5000/api/generate-outline', {\n        method: 'POST',\n        headers: {\n          'Content-Type': 'application/json'\n        },\n        body: JSON.stringify({ text })\n      });\n\n      const data = await response.json();\n      displayOutline(data.outline);\n      switchTab('outline');\n    } catch (error) {\n      console.error('Error generating outline:', error);\n      alert('Failed to generate outline. Please try again.');\n    }\n  });\n\n  function displayOutline(outline) {\n    let html = `\n      <h2>${outline.title}</h2>\n      \n      <div class=\"outline-sections\">\n    `;\n\n    // Add sections\n    outline.sections.forEach(section => {\n      html += `\n        <div class=\"outline-section\">\n          <h3>${section.title}</h3>\n          <ul>\n            ${section.key_points.map(point => `<li>${point}</li>`).join('')}\n          </ul>\n          <p class=\"suggested-length\">Suggested length: ~${section.suggested_length} words</p>\n        </div>\n      `;\n    });\n\n    // Add writing recommendations\n    html += `\n      <div class=\"writing-recommendations\">\n        <h3>Writing Recommendations</h3>\n        <ul>\n          <li>${outline.structure_recommendations.paragraph_distribution}</li>\n          <li>${outline.structure_recommendations.sentence_variety}</li>\n          ${outline.structure_recommendations.transitions_needed ? \n            '<li>Consider adding more transition words between paragraphs</li>' : ''}\n          <li>Recommended average sentence length: ${Math.round(outline.writing_style.sentence_length)} words</li>\n          <li>Suggested tense: ${outline.writing_style.recommended_tense}</li>\n        </ul>\n      </div>\n    `;\n\n    html += '</div>';\n    outlineContainer.innerHTML = html;\n  }\n\n  regenerateOutline.addEventListener('click', () => {\n    analyzeButton.click();\n  });\n\n  applyOutline.addEventListener('click', () => {\n    const outlineItems = Array.from(outlineContainer.children)\n      .map(p => p.textContent.replace(/^\\d+\\.\\s/, ''));\n\n    window.parent.postMessage({\n      action: 'applyOutline',\n      data: { outline: outlineItems }\n    }, '*');\n  });\n\n  // Listen for messages from content script\n  window.addEventListener('message', (event) => {\n    const { action, tab } = event.data;\n\n    if (action === 'switchTab' && tab) {\n      switchTab(tab);\n    }\n  });\n}); \n\n//# sourceURL=webpack://writeai-extension/./sidebar.js?");
+
+/***/ })
+
+/******/ 	});
+/************************************************************************/
+/******/ 	
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module can't be inlined because the eval devtool is used.
+/******/ 	var __webpack_exports__ = {};
+/******/ 	__webpack_modules__["./sidebar.js"]();
+/******/ 	
+/******/ })()
+;

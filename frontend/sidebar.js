@@ -13,6 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const applyOutline = document.getElementById('apply-outline');
   const outlineContainer = document.getElementById('outline-container');
 
+  // Initialize active tab
+  let activeTab = 'upload';
+
   // Close sidebar
   closeBtn.addEventListener('click', () => {
     window.parent.postMessage({ action: 'closeSidebar' }, '*');
@@ -27,14 +30,53 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function switchTab(tabId) {
+    // Update active tab state
+    activeTab = tabId;
+
+    // Update button states
     tabButtons.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tabId);
+      if (btn.dataset.tab === tabId) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
     });
     
+    // Update panel visibility
     tabPanels.forEach(panel => {
-      panel.classList.toggle('active', panel.id === tabId);
+      if (panel.id === tabId) {
+        panel.classList.add('active');
+        panel.style.display = 'block';
+      } else {
+        panel.classList.remove('active');
+        panel.style.display = 'none';
+      }
     });
+
+    // Notify parent window of tab change
+    window.parent.postMessage({ 
+      action: 'tabChanged', 
+      tab: tabId 
+    }, '*');
+
+    // Initialize tab-specific functionality
+    if (tabId === 'braindump') {
+      const text = braindumpInput.value;
+      analyzeText(text);
+    }
   }
+
+  // Listen for messages from content script
+  window.addEventListener('message', (event) => {
+    const { action, tab } = event.data;
+
+    if (action === 'switchTab' && tab) {
+      switchTab(tab);
+    }
+  });
+
+  // Initialize with default tab
+  switchTab(activeTab);
 
   // File upload handling
   uploadButton.addEventListener('click', () => {
@@ -86,57 +128,90 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!text) return;
 
     try {
+      // First, get the cursor position from the Google Doc
+      const cursorPosition = await getCursorPosition();
+      
+      // Call GPT API to generate outline
       const response = await fetch('http://localhost:5000/api/generate-outline', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('gpt_api_key')}`,
+          'Accept': 'application/json'
         },
-        body: JSON.stringify({ text })
+        mode: 'cors',
+        credentials: 'include',
+        body: JSON.stringify({ 
+          text,
+          cursor_position: cursorPosition
+        })
       });
 
+      if (!response.ok) {
+        throw new Error('Failed to generate outline');
+      }
+
       const data = await response.json();
+      
+      // Display the generated outline
       displayOutline(data.outline);
+      
+      // Switch to outline tab
       switchTab('outline');
+      
+      // Apply the outline to the document
+      window.parent.postMessage({
+        action: 'applyOutline',
+        data: { 
+          outline: data.outline,
+          cursor_position: cursorPosition
+        }
+      }, '*');
     } catch (error) {
       console.error('Error generating outline:', error);
-      alert('Failed to generate outline. Please try again.');
+      alert('Failed to generate outline. Please check your API key and try again.');
     }
   });
 
-  function displayOutline(outline) {
-    let html = `
-      <h2>${outline.title}</h2>
+  // Function to get cursor position from Google Doc
+  async function getCursorPosition() {
+    return new Promise((resolve) => {
+      window.parent.postMessage({ action: 'getCursorPosition' }, '*');
       
+      const messageHandler = (event) => {
+        if (event.data.action === 'cursorPosition') {
+          window.removeEventListener('message', messageHandler);
+          resolve(event.data.position);
+        }
+      };
+      
+      window.addEventListener('message', messageHandler);
+    });
+  }
+
+  function displayOutline(outline) {
+    if (!outline || !outline.sections) {
+      outlineContainer.innerHTML = '<p class="error">Failed to generate outline. Please try again.</p>';
+      return;
+    }
+
+    let html = `
       <div class="outline-sections">
     `;
 
     // Add sections
-    outline.sections.forEach(section => {
+    outline.sections.forEach((section, index) => {
       html += `
         <div class="outline-section">
-          <h3>${section.title}</h3>
+          <h3>${index + 1}. ${section.title}</h3>
           <ul>
             ${section.key_points.map(point => `<li>${point}</li>`).join('')}
           </ul>
-          <p class="suggested-length">Suggested length: ~${section.suggested_length} words</p>
+          ${section.suggested_length ? 
+            `<p class="suggested-length">Suggested length: ~${section.suggested_length} words</p>` : ''}
         </div>
       `;
     });
-
-    // Add writing recommendations
-    html += `
-      <div class="writing-recommendations">
-        <h3>Writing Recommendations</h3>
-        <ul>
-          <li>${outline.structure_recommendations.paragraph_distribution}</li>
-          <li>${outline.structure_recommendations.sentence_variety}</li>
-          ${outline.structure_recommendations.transitions_needed ? 
-            '<li>Consider adding more transition words between paragraphs</li>' : ''}
-          <li>Recommended average sentence length: ${Math.round(outline.writing_style.sentence_length)} words</li>
-          <li>Suggested tense: ${outline.writing_style.recommended_tense}</li>
-        </ul>
-      </div>
-    `;
 
     html += '</div>';
     outlineContainer.innerHTML = html;
@@ -154,15 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
       action: 'applyOutline',
       data: { outline: outlineItems }
     }, '*');
-  });
-
-  // Listen for messages from content script
-  window.addEventListener('message', (event) => {
-    const { action, tab } = event.data;
-
-    if (action === 'switchTab' && tab) {
-      switchTab(tab);
-    }
   });
 
   // Writing Analysis Functions

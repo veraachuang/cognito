@@ -4,7 +4,6 @@
   "version": "1.0",
   "description": "AI-powered writing assistant that learns your style and helps create outlines",
   "permissions": [
-    "storage",
     "activeTab",
     "scripting"
   ],

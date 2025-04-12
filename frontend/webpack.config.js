@@ -2,10 +2,14 @@ const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = {
-  entry: './sidebar.js',
+  entry: {
+    sidebar: './sidebar.js',
+    content: './content.js',
+    popup: './popup.js'
+  },
   output: {
-    filename: 'bundle.js',
-    path: path.resolve(__dirname, 'dist'),
+    filename: '[name].js',
+    path: path.resolve(__dirname, '../dist'),
   },
   module: {
     rules: [
@@ -18,9 +22,10 @@ module.exports = {
   plugins: [
     new CopyPlugin({
       patterns: [
-        { from: 'manifest.json', to: 'manifest.json' },
         { from: 'sidebar.html', to: 'sidebar.html' },
         { from: 'sidebar.css', to: 'sidebar.css' },
+        { from: 'popup.html', to: 'popup.html' },
+        { from: 'popup.css', to: 'popup.css' }
       ],
     }),
   ],

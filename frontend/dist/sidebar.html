@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>WriteAI Assistant</title>
+  <title>Cognito Assistant</title>
   <link rel="stylesheet" href="sidebar.css">
 </head>
 <body>
   <div class="sidebar-container">
     <div class="header">
-      <h1>WriteAI Assistant</h1>
+      <h1>Cognito Assistant</h1>
       <button id="close-sidebar" class="icon-button">✕</button>
     </div>
 
@@ -15,6 +15,7 @@
       <button class="tab-button active" data-tab="upload">Upload</button>
       <button class="tab-button" data-tab="braindump">Brain Dump</button>
       <button class="tab-button" data-tab="outline">Outline</button>
+      <button class="tab-button" data-tab="analysis">Analysis</button>
     </div>
 
     <div class="tab-content">
@@ -42,6 +43,37 @@
           <p>Write freely about your topic. Don't worry about structure.</p>
           <textarea id="braindump-input" placeholder="Start typing your thoughts..."></textarea>
           <button id="analyze-button" class="primary-button">Analyze & Create Outline</button>
+          
+          <!-- Real-time Writing Analysis -->
+          <div class="writing-analysis">
+            <h3>Writing Analysis</h3>
+            <div class="analysis-metrics">
+              <div class="metric">
+                <div class="metric-label">Grade Level</div>
+                <div class="metric-value" id="grade-level">-</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">Word Count</div>
+                <div class="metric-value" id="word-count">0</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">Reading Time</div>
+                <div class="metric-value" id="reading-time">-</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">Writing Style</div>
+                <div class="metric-value" id="writing-style">-</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Writing Prompts -->
+          <div class="writing-prompts">
+            <h3>Writing Prompts</h3>
+            <div id="prompts-container">
+              <!-- Prompts will be dynamically added here -->
+            </div>
+          </div>
         </div>
       </div>
 
@@ -56,6 +88,37 @@
           <div class="outline-actions">
             <button id="regenerate-outline" class="secondary-button">Regenerate</button>
             <button id="apply-outline" class="primary-button">Apply to Document</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Tab -->
+      <div id="analysis" class="tab-panel">
+        <div class="analysis-section">
+          <h2>Detailed Analysis</h2>
+          <div class="analysis-metrics detailed">
+            <div class="metric">
+              <div class="metric-label">Vocabulary Level</div>
+              <div class="metric-value" id="vocabulary-level">-</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Sentence Structure</div>
+              <div class="metric-value" id="sentence-structure">-</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Clarity Score</div>
+              <div class="metric-value" id="clarity-score">-</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Engagement Score</div>
+              <div class="metric-value" id="engagement-score">-</div>
+            </div>
+          </div>
+          <div class="writing-recommendations">
+            <h3>Recommendations</h3>
+            <div id="recommendations-container">
+              <!-- Recommendations will be dynamically added here -->
+            </div>
           </div>
         </div>
       </div>

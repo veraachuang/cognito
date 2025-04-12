@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "WriteAI Assistant",
+  "name": "Cognito Assistant",
   "version": "1.0",
   "description": "AI-powered writing assistant that learns your style and helps create outlines",
   "permissions": [

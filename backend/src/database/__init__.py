@@ -1,3 +1,3 @@
 """
-Database module for WriteAI
+Database module for Cognito
 """ 

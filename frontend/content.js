@@ -5,7 +5,7 @@ let sidebarVisible = false;
 function createSidebar() {
   sidebarFrame = document.createElement('iframe');
   sidebarFrame.src = chrome.runtime.getURL('sidebar.html');
-  sidebarFrame.id = 'writeai-sidebar';
+  sidebarFrame.id = 'cognito-sidebar';
   sidebarFrame.style.cssText = `
     position: fixed;
     top: 0;

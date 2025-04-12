@@ -4,13 +4,29 @@
   box-sizing: border-box;
 }
 
+:root {
+  --primary-text: #ca0013;
+  --background: #eeebe3;
+  --secondary-text: #333333;
+  --border-color: #d1c7b7;
+  --hover-bg: #e0dcd2;
+  --button-bg: #ca0013;
+  --button-hover: #a0000f;
+  --button-text: #ffffff;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--secondary-text);
+}
+
 .sidebar-container {
   position: fixed;
   top: 0;
   right: 0;
   width: 350px;
   height: 100vh;
-  background: white;
+  background: var(--background);
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
@@ -22,12 +38,12 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid #dadce0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .header h1 {
   font-size: 18px;
-  color: #1a73e8;
+  color: var(--primary-text);
 }
 
 .icon-button {
@@ -55,14 +71,16 @@
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #5f6368;
+  color: var(--secondary-text);
   cursor: pointer;
   font-size: 14px;
+  transition: all 0.2s ease;
 }
 
 .tab-button.active {
-  color: #1a73e8;
-  border-bottom-color: #1a73e8;
+  color: var(--primary-text);
+  border-bottom-color: var(--primary-text);
+  font-weight: 500;
 }
 
 .tab-content {
@@ -81,17 +99,18 @@
 
 /* Upload Section */
 .upload-box {
-  border: 2px dashed #dadce0;
+  border: 2px dashed var(--border-color);
   border-radius: 8px;
   padding: 24px;
   text-align: center;
   margin: 16px 0;
-  transition: border-color 0.2s;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .upload-box.drag-over {
-  border-color: #1a73e8;
-  background-color: #f8f9fa;
+  border-color: var(--primary-text);
+  background-color: var(--hover-bg);
 }
 
 .upload-icon {
@@ -118,11 +137,18 @@
   height: 200px;
   margin: 16px 0;
   padding: 12px;
-  border: 1px solid #dadce0;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   resize: vertical;
   font-family: inherit;
   font-size: 14px;
+  background: rgba(255, 255, 255, 0.5);
+  transition: border-color 0.2s ease;
+}
+
+#braindump-input:focus {
+  outline: none;
+  border-color: var(--primary-text);
 }
 
 /* Outline Section */
@@ -191,31 +217,98 @@
 
 /* Buttons */
 .primary-button {
-  background-color: #1a73e8;
-  color: white;
+  background-color: var(--button-bg);
+  color: var(--button-text);
   border: none;
-  padding: 8px 16px;
+  padding: 10px 20px;
   border-radius: 4px;
   font-size: 14px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
+  font-weight: 500;
 }
 
 .primary-button:hover {
-  background-color: #1557b0;
+  background-color: var(--button-hover);
+  transform: translateY(-1px);
 }
 
 .secondary-button {
-  background-color: #f8f9fa;
-  color: #202124;
-  border: 1px solid #dadce0;
-  padding: 8px 16px;
+  background-color: transparent;
+  color: var(--primary-text);
+  border: 1px solid var(--primary-text);
+  padding: 10px 20px;
   border-radius: 4px;
   font-size: 14px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .secondary-button:hover {
-  background-color: #f1f3f4;
+  background-color: var(--hover-bg);
+  transform: translateY(-1px);
+}
+
+/* Writing Analysis Section */
+.writing-analysis {
+  margin-top: 20px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.writing-analysis h3 {
+  color: var(--primary-text);
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.analysis-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.metric {
+  padding: 8px;
+  background: var(--background);
+  border-radius: 4px;
+  text-align: center;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: var(--secondary-text);
+  margin-bottom: 4px;
+}
+
+.metric-value {
+  font-size: 16px;
+  color: var(--primary-text);
+  font-weight: 500;
+}
+
+/* Writing Prompts Section */
+.writing-prompts {
+  margin-top: 20px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.prompt {
+  margin-bottom: 10px;
+  padding: 10px;
+  background: var(--background);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.prompt:hover {
+  background: var(--hover-bg);
+  transform: translateX(5px);
 } 

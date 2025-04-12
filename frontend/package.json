@@ -1,5 +1,5 @@
 {
-  "name": "writeai-extension",
+  "name": "cognito-extension",
   "version": "1.0.0",
   "description": "Chrome extension for AI-powered writing assistance",
   "main": "sidebar.js",

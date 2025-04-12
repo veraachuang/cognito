@@ -1,3 +1,3 @@
 """
-WriteAI backend package
+Cognito backend package
 """ 

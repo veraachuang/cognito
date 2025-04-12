@@ -39,7 +39,7 @@ API_DOCS = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>WriteAI API Documentation</title>
+    <title>Cognito API Documentation</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
         .endpoint { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
@@ -47,7 +47,7 @@ API_DOCS = """
     </style>
 </head>
 <body>
-    <h1>WriteAI API Documentation</h1>
+    <h1>Cognito API Documentation</h1>
     
     <div class="endpoint">
         <h2>Health Check</h2>

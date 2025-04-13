@@ -6,13 +6,14 @@
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "http://localhost:5001/*"
   ],
   "host_permissions": [
     "http://localhost:5000/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://localhost:5000"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://localhost:5001"
   },
   "action": {
     "default_popup": "dist/popup.html",

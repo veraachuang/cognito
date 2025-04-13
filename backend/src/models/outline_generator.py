@@ -17,7 +17,20 @@ api_key = os.getenv('OPENAI_API_KEY')
 if not api_key:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
 
-client = OpenAI(api_key=api_key)
+print(f"API Key found: {api_key[:5]}...{api_key[-5:]}")  # Print first and last 5 chars for debugging
+
+try:
+    client = OpenAI(api_key=api_key)
+    # Test the API key with a simple request
+    print("Testing OpenAI API connection...")
+    models = client.models.list()
+    print("OpenAI API connection successful!")
+    print(f"Available models: {[model.id for model in models.data]}")
+except Exception as e:
+    print(f"OpenAI API Error: {str(e)}")
+    if "API key" in str(e) or "authentication" in str(e).lower():
+        raise ValueError("OpenAI API key is invalid or expired. Please check your configuration.")
+    raise
 
 def extract_key_topics(text: str, text_analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Extract and rank key topics from the text"""
@@ -159,111 +172,189 @@ def generate_outline(text: str, text_analysis: Dict[str, Any], style_analysis: D
     """
     Generate a structured outline based on text analysis and AI assistance.
     """
-    # Extract key topics
-    topics = extract_key_topics(text, text_analysis)
-    
-    # Create the main outline prompt
-    outline_prompt = f"""
-    Create a detailed document outline based on this text:
-    {text}
-
-    Key topics identified:
-    {', '.join(t['topic'] for t in topics)}
-
-    Writing style analysis:
-    - Average sentence length: {style_analysis["style_metrics"]["avg_sentence_length"]} words
-    - Preferred tense: {style_analysis["style_metrics"]["verb_tenses"]}
-
-    Include:
-    1. An introduction section
-    2. Main body sections for each key topic
-    3. A conclusion section
-    4. Specific points under each section
-    5. Writing style recommendations
-
-    Format the response as a structured outline with clear sections and points.
-    """
-
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant that creates detailed document outlines."},
-            {"role": "user", "content": outline_prompt}
-        ],
-        temperature=0.7
-    )
-
     try:
-        # Process the AI-generated outline
-        content = response.choices[0].message.content
+        # Extract key topics and structure
+        topics = extract_key_topics(text, text_analysis)
+        structure = analyze_text_structure(text)
         
-        # Create sections array
+        # Prepare style context if available
+        style_context = ""
+        if style_analysis and isinstance(style_analysis, dict):
+            style_metrics = style_analysis.get("style_metrics", {})
+            style_context = f"""
+            Writing Style Guidelines:
+            - Tone: {style_metrics.get("verb_tenses", "professional")}
+            - Structure: {style_metrics.get("structure", "clear and logical")}
+            - Average Sentence Length: {style_metrics.get("avg_sentence_length", "moderate")} words
+            """
+        
+        # Generate outline using GPT
+        prompt = f"""Based on the following text, create a detailed outline that captures its main ideas and structure.
+
+Text to analyze: {text}
+
+Key topics identified:
+{', '.join([t['topic'] for t in topics[:3]])}
+
+Requirements:
+1. Create 3-5 main sections that directly relate to the text's content
+2. Each section must include:
+   - A descriptive title that reflects the actual content
+   - A suggested word count range
+   - 3-4 specific key points drawn from the text
+3. Follow this EXACT format:
+
+[Introduction] (Suggested Length: 150-200)
+- [Specific point about introducing the topic]
+- [Overview of the main themes found in the text]
+- [Clear thesis statement based on the text]
+
+[Main Section Title - Use actual topic] (Suggested Length: 300-400)
+- [Specific point from the text]
+- [Evidence or example mentioned]
+- [Analysis or implication discussed]
+
+[Conclusion] (Suggested Length: 150-200)
+- [Summary of key findings]
+- [Synthesis of main arguments]
+- [Concluding thoughts or recommendations]
+
+Important:
+- Use actual topics and points from the text
+- Make section titles descriptive and specific
+- Ensure key points are detailed and directly related to the content
+- Keep the exact format with brackets and parentheses"""
+
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are an expert writing assistant that creates detailed, content-specific outlines. Focus on extracting and organizing the actual ideas present in the text."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=1000
+        )
+        
+        # Parse the generated outline
+        outline_content = response.choices[0].message.content
+        print("Raw outline content:", outline_content)  # Debug log
         sections = []
+        current_section = None
         
-        # Add introduction
-        sections.append({
-            "title": "Introduction",
-            "key_points": [
-                "Set context and background",
-                f"Introduce main topics: {', '.join(t['topic'] for t in topics[:3])}",
-                "State the purpose or thesis"
-            ],
-            "suggested_length": int(text_analysis["statistics"]["word_count"] * 0.15)
-        })
-        
-        # Add main body sections
-        for topic in topics:
-            sections.append({
-                "title": topic["topic"].title(),
-                "key_points": generate_section_points(topic, text_analysis),
-                "suggested_length": int(text_analysis["statistics"]["word_count"] * 0.15)
-            })
-        
-        # Add conclusion
-        sections.append({
-            "title": "Conclusion",
-            "key_points": [
-                "Summarize key findings",
-                "Synthesize main arguments",
-                "Provide final thoughts or recommendations"
-            ],
-            "suggested_length": int(text_analysis["statistics"]["word_count"] * 0.1)
-        })
-
-        return {
-            "title": "Document Outline",
-            "sections": sections,
-            "writing_style": {
-                "sentence_length": style_analysis["style_metrics"]["avg_sentence_length"],
-                "recommended_tense": max(style_analysis["style_metrics"]["verb_tenses"].items(), 
-                                      key=lambda x: x[1])[0] if style_analysis["style_metrics"]["verb_tenses"] else "Present"
-            }
-        }
-
-    except Exception as e:
-        print(f"Error generating outline: {e}")
-        # Fall back to the basic outline structure
-        return {
-            "title": "Document Outline",
-            "sections": [
-                {
-                    "title": "Introduction",
-                    "key_points": ["Set context", "Introduce topic", "State purpose"],
-                    "suggested_length": int(text_analysis["statistics"]["word_count"] * 0.15)
-                },
-                *[{
-                    "title": topic["topic"].title(),
-                    "key_points": generate_section_points(topic, text_analysis),
-                    "suggested_length": int(text_analysis["statistics"]["word_count"] * 0.15)
-                } for topic in topics],
-                {
-                    "title": "Conclusion",
-                    "key_points": ["Summarize findings", "Final thoughts", "Future implications"],
-                    "suggested_length": int(text_analysis["statistics"]["word_count"] * 0.1)
+        for line in outline_content.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Match section headers: [Title] (Suggested Length: X-Y)
+            if line.startswith('[') and ']' in line and '(Suggested Length:' in line:
+                if current_section:
+                    sections.append(current_section)
+                
+                # Extract title and suggested length
+                title = line[1:line.index(']')]
+                length_str = line[line.index('(Suggested Length:')+18:].strip(')')
+                # Clean up the length string and extract numbers
+                length_range = [int(x.strip()) for x in length_str.split('-') if x.strip().isdigit()]
+                if len(length_range) == 2:
+                    suggested_length = f"{length_range[0]}-{length_range[1]}"
+                else:
+                    # Fallback length based on section type
+                    suggested_length = "150-200" if "introduction" in title.lower() or "conclusion" in title.lower() else "300-400"
+                
+                current_section = {
+                    'title': title,
+                    'key_points': [],
+                    'suggested_length': suggested_length
                 }
-            ],
-            "writing_style": {
-                "sentence_length": style_analysis["style_metrics"]["avg_sentence_length"],
-                "recommended_tense": "Present"
-            }
+            elif line.startswith('-') and current_section:
+                point = line[1:].strip().strip('[]')  # Remove brackets if present
+                if point:
+                    current_section['key_points'].append(point)
+        
+        if current_section:
+            sections.append(current_section)
+        
+        # Calculate total suggested length
+        total_length = 0
+        for section in sections:
+            if section['suggested_length']:
+                # Extract the minimum length from the range (e.g., "300-400" -> 300)
+                min_length = int(section['suggested_length'].split('-')[0])
+                total_length += min_length
+        
+        # If no valid outline was generated, create one based on extracted topics
+        if not sections:
+            sections = [{
+                'title': 'Introduction',
+                'key_points': [
+                    f"Introduce the concept of {topics[0]['topic'] if topics else 'the main topic'}",
+                    f"Provide context about {topics[1]['topic'] if len(topics) > 1 else 'key themes'}",
+                    "Present the main objectives and scope"
+                ],
+                'suggested_length': '150-200'
+            }]
+            
+            # Add sections for each major topic
+            for topic in topics[:2]:  # Use top 2 topics for main sections
+                sections.append({
+                    'title': f"Analysis of {topic['topic'].title()}",
+                    'key_points': [
+                        f"Examine the key aspects of {topic['topic']}",
+                        f"Present evidence and examples related to {topic['topic']}",
+                        f"Discuss implications and significance of {topic['topic']}"
+                    ],
+                    'suggested_length': '300-400'
+                })
+            
+            sections.append({
+                'title': 'Conclusion',
+                'key_points': [
+                    "Synthesize the main findings",
+                    f"Connect the implications of {topics[0]['topic'] if topics else 'the analysis'}",
+                    "Propose recommendations or future directions"
+                ],
+                'suggested_length': '150-200'
+            })
+            
+            total_length = 600
+        
+        return {
+            'sections': sections,
+            'total_suggested_length': total_length
+        }
+        
+    except Exception as e:
+        print(f"Error in generate_outline: {str(e)}")
+        # Create a fallback outline based on extracted topics
+        topics_fallback = extract_key_topics(text, text_analysis)
+        main_topic = topics_fallback[0]['topic'] if topics_fallback else "the main topic"
+        
+        return {
+            'sections': [{
+                'title': 'Introduction',
+                'key_points': [
+                    f"Introduce {main_topic}",
+                    "Present key themes and context",
+                    "State the main objectives"
+                ],
+                'suggested_length': '150-200'
+            }, {
+                'title': f"Analysis of {main_topic.title()}",
+                'key_points': [
+                    f"Examine the key aspects of {main_topic}",
+                    "Present supporting evidence",
+                    "Discuss implications"
+                ],
+                'suggested_length': '300-400'
+            }, {
+                'title': 'Conclusion',
+                'key_points': [
+                    "Summarize main findings",
+                    "Present synthesis of arguments",
+                    "Suggest next steps"
+                ],
+                'suggested_length': '150-200'
+            }],
+            'total_suggested_length': 600
         } 

@@ -125,7 +125,7 @@ async function handleFileUpload(files) {
   files.forEach(file => formData.append('files', file));
 
   try {
-    const response = await fetch('http://localhost:5000/api/upload', {
+    const response = await fetch('http://localhost:5001/api/upload', {
       method: 'POST',
       body: formData
     });
@@ -166,25 +166,42 @@ function getCursorPosition() {
 // Function to apply the generated outline to the Google Doc
 function applyOutlineToDoc(outline, cursorPosition) {
   const doc = document.querySelector('div[contenteditable="true"]');
-  if (!doc) return;
+  if (!doc) {
+    console.error('Could not find editable document');
+    return;
+  }
 
-  // Create outline text
+  // Create outline text with proper formatting
   const outlineText = outline.sections.map((section, index) => {
     const keyPoints = section.key_points.map((point, i) => `  ${i + 1}. ${point}`).join('\n');
-    return `${index + 1}. ${section.title}\n${keyPoints}`;
+    const lengthInfo = section.suggested_length ? `\n  Suggested length: ${section.suggested_length} words` : '';
+    return `${index + 1}. ${section.title}${lengthInfo}\n${keyPoints}`;
   }).join('\n\n');
-  
+
   // Create a new div with the outline
   const outlineElement = document.createElement('div');
+  outlineElement.style.whiteSpace = 'pre-wrap';
+  outlineElement.style.marginBottom = '20px';
   outlineElement.textContent = outlineText;
-  
-  if (cursorPosition && cursorPosition.node) {
-    // Insert at cursor position
-    const range = document.createRange();
-    range.setStart(cursorPosition.node, cursorPosition.offset);
-    range.insertNode(outlineElement);
-  } else {
-    // Insert at the beginning
-    doc.insertBefore(outlineElement, doc.firstChild);
+
+  try {
+    if (cursorPosition && cursorPosition.node) {
+      // Insert at cursor position
+      const range = document.createRange();
+      range.setStart(cursorPosition.node, cursorPosition.offset);
+      range.insertNode(outlineElement);
+    } else {
+      // Insert at the beginning of the document
+      doc.insertBefore(outlineElement, doc.firstChild);
+    }
+
+    // Add a separator after the outline
+    const separator = document.createElement('hr');
+    separator.style.margin = '20px 0';
+    doc.insertBefore(separator, outlineElement.nextSibling);
+
+    console.log('Outline successfully applied to document');
+  } catch (error) {
+    console.error('Error applying outline:', error);
   }
 } 

@@ -132,15 +132,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const cursorPosition = await getCursorPosition();
       
       // Call GPT API to generate outline
-      const response = await fetch('http://localhost:5000/api/generate-outline', {
+      const response = await fetch('http://localhost:5001/api/generate-outline', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('gpt_api_key')}`,
           'Accept': 'application/json'
         },
         mode: 'cors',
-        credentials: 'include',
+        credentials: 'omit',
         body: JSON.stringify({ 
           text,
           cursor_position: cursorPosition
@@ -152,6 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const data = await response.json();
+      console.log('Received outline data:', data); // Debug log
       
       // Display the generated outline
       displayOutline(data.outline);
@@ -190,31 +190,90 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function displayOutline(outline) {
+    console.log('Displaying outline:', outline); // Debug log
+    
     if (!outline || !outline.sections) {
+      console.error('Invalid outline data:', outline);
       outlineContainer.innerHTML = '<p class="error">Failed to generate outline. Please try again.</p>';
       return;
     }
 
-    let html = `
-      <div class="outline-sections">
-    `;
+    // Clear any existing content
+    outlineContainer.innerHTML = '';
+
+    // Create the outline sections container
+    const outlineSections = document.createElement('div');
+    outlineSections.className = 'outline-sections';
 
     // Add sections
     outline.sections.forEach((section, index) => {
-      html += `
-        <div class="outline-section">
-          <h3>${index + 1}. ${section.title}</h3>
-          <ul>
-            ${section.key_points.map(point => `<li>${point}</li>`).join('')}
-          </ul>
-          ${section.suggested_length ? 
-            `<p class="suggested-length">Suggested length: ~${section.suggested_length} words</p>` : ''}
-        </div>
-      `;
+      if (!section || !section.title) {
+        console.warn('Invalid section:', section);
+        return;
+      }
+
+      const sectionDiv = document.createElement('div');
+      sectionDiv.className = 'outline-section';
+      
+      // Add section title with suggested length
+      const title = document.createElement('h3');
+      title.textContent = `${index + 1}. ${section.title}`;
+      if (section.suggested_length) {
+        const lengthSpan = document.createElement('span');
+        lengthSpan.className = 'suggested-length';
+        lengthSpan.textContent = ` (${section.suggested_length} words)`;
+        title.appendChild(lengthSpan);
+      }
+      sectionDiv.appendChild(title);
+
+      // Add key points if they exist
+      if (section.key_points && section.key_points.length > 0) {
+        const pointsList = document.createElement('ul');
+        pointsList.className = 'key-points';
+        section.key_points.forEach(point => {
+          if (point) { // Only add non-empty points
+            const li = document.createElement('li');
+            li.textContent = point;
+            pointsList.appendChild(li);
+          }
+        });
+        sectionDiv.appendChild(pointsList);
+      }
+
+      outlineSections.appendChild(sectionDiv);
     });
 
-    html += '</div>';
-    outlineContainer.innerHTML = html;
+    // Add total length if available
+    if (outline.total_suggested_length) {
+      const totalLength = document.createElement('div');
+      totalLength.className = 'total-length';
+      const totalText = document.createElement('p');
+      totalText.textContent = `Total suggested length: ${outline.total_suggested_length} words`;
+      totalLength.appendChild(totalText);
+      outlineSections.appendChild(totalLength);
+    }
+
+    // Add the outline to the container
+    outlineContainer.appendChild(outlineSections);
+
+    // Make sure the outline tab is visible
+    const outlineTab = document.getElementById('outline');
+    if (outlineTab) {
+      outlineTab.style.display = 'block';
+      
+      // Update tab button state
+      const tabButtons = document.querySelectorAll('.tab-button');
+      tabButtons.forEach(button => {
+        if (button.dataset.tab === 'outline') {
+          button.classList.add('active');
+        } else {
+          button.classList.remove('active');
+        }
+      });
+    }
+
+    // Add debug log to check if outline is being added
+    console.log('Outline container contents:', outlineContainer.innerHTML);
   }
 
   regenerateOutline.addEventListener('click', () => {
@@ -222,12 +281,25 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   applyOutline.addEventListener('click', () => {
-    const outlineItems = Array.from(outlineContainer.children)
-      .map(p => p.textContent.replace(/^\d+\.\s/, ''));
+    const outlineSections = document.querySelectorAll('.outline-section');
+    const outlineData = Array.from(outlineSections).map(section => {
+      const title = section.querySelector('h3').textContent.replace(/^\d+\.\s/, '');
+      const points = Array.from(section.querySelectorAll('.key-points li')).map(li => li.textContent);
+      return {
+        title,
+        key_points: points,
+        suggested_length: section.querySelector('.suggested-length')?.textContent.replace('Suggested length: ', '').replace(' words', '')
+      };
+    });
 
     window.parent.postMessage({
       action: 'applyOutline',
-      data: { outline: outlineItems }
+      data: { 
+        outline: {
+          sections: outlineData,
+          total_suggested_length: document.querySelector('.total-length p')?.textContent.replace('Total suggested length: ', '').replace(' words', '')
+        }
+      }
     }, '*');
   });
 

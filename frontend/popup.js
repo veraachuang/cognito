@@ -30,8 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Connect button
-  connectButton.addEventListener('click', () => {
-    sendMessage({ action: 'toggleSidebar', tab: 'upload' });
+  connectButton.addEventListener('click', async () => {
+    await sendMessage({ action: 'toggleSidebar', tab: 'upload' });
+    window.close();
   });
 
   // Toggle Sidebar button

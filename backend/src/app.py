@@ -18,14 +18,12 @@ app = Flask(__name__)
 CORS(app, resources={
     r"/api/*": {
         "origins": [
-            "chrome-extension://*",  # Allow all chrome extensions
+            "chrome-extension://jcdgbfdngmmmijhcemlhadoodoclfbjn",  # Your extension ID
             "http://localhost:3000",  # For local development
-            "http://localhost:5000",
-            "http://localhost:5001"
+            "http://localhost:5000"
         ],
         "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": True
+        "allow_headers": ["Content-Type", "Authorization"]
     }
 })
 
@@ -138,72 +136,36 @@ def create_outline():
         return jsonify({"error": "Request must be JSON"}), 400
 
     data = request.get_json()
-    text = data.get('text', '').strip()
+    text = data.get('text')
     
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
     try:
-        print("Starting outline generation...")
         # Analyze the input text
-        print("Analyzing text...")
         text_analysis = preprocess_text(text)
         style_analysis = analyze_writing_style(text)
-        print("Text analysis complete")
 
         # Get writing style examples from the dataset
-        print("Getting style samples...")
         style_samples = blog_dataset.get_sample(n=5)
         processed_samples = batch_process_texts([sample['text'] for sample in style_samples])
-        print("Style samples processed")
 
         # Generate outline based on text analysis and style examples
-        print("Generating outline...")
         outline = generate_outline(
             text=text,
             text_analysis=text_analysis,
             style_analysis=style_analysis,
             style_examples=processed_samples
         )
-        print("Outline generated:", outline)  # Debug log
-
-        # Validate outline structure
-        if not outline or not outline.get('sections'):
-            print("Invalid outline generated, using fallback")
-            outline = {
-                'sections': [{
-                    'title': 'Introduction',
-                    'key_points': ['Introduce the main topic', 'Present key themes', 'State the main objective'],
-                    'suggested_length': '150-200'
-                }, {
-                    'title': 'Main Discussion',
-                    'key_points': ['Analyze key aspects', 'Present supporting evidence', 'Discuss implications'],
-                    'suggested_length': '300-400'
-                }, {
-                    'title': 'Conclusion',
-                    'key_points': ['Summarize main points', 'Present final thoughts', 'Suggest next steps'],
-                    'suggested_length': '150-200'
-                }],
-                'total_suggested_length': 600
-            }
 
         return jsonify({
             "outline": outline,
             "statistics": text_analysis,
-            "style_metrics": style_analysis.get("style_metrics", {})
+            "style_metrics": style_analysis["style_metrics"]
         })
 
-    except ValueError as e:
-        print(f"ValueError in outline generation: {str(e)}")
-        if "OPENAI_API_KEY" in str(e):
-            return jsonify({"error": "OpenAI API key is missing or invalid. Please check your configuration."}), 401
-        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        error_msg = str(e)
-        print(f"Error in outline generation: {error_msg}")
-        if "API key" in error_msg or "authentication" in error_msg.lower():
-            return jsonify({"error": "OpenAI API key is invalid or expired. Please check your configuration."}), 401
-        return jsonify({"error": f"Error generating outline: {error_msg}"}), 500
+        return jsonify({"error": f"Error generating outline: {str(e)}"}), 500
 
 def extract_text_from_file(filepath):
     """Extract text from various file formats"""
@@ -229,4 +191,4 @@ def extract_text_from_file(filepath):
         return '\n'.join([paragraph.text for paragraph in doc.paragraphs])
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001) 
+    app.run(debug=True, port=5000) 

@@ -3,35 +3,27 @@
 <head>
   <title>Cognito Assistant</title>
   <link rel="stylesheet" href="popup.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
   <div class="container">
     <h1>Cognito Assistant</h1>
-    
     <div class="status-container">
       <div class="status">
         <span class="status-label">Status:</span>
         <span id="connection-status">Not connected</span>
       </div>
-      <button id="connect-button" class="primary-button">Open Assistant</button>
+      <button id="toggle-sidebar" class="primary-button">Open Assistant</button>
     </div>
-
     <div class="divider"></div>
-
     <div class="info-section">
       <h2>Quick Actions</h2>
-      <button id="toggle-sidebar" class="secondary-button">
-        <i class="fas fa-columns icon"></i>
-        Toggle Sidebar
-      </button>
       <button id="upload-docs" class="secondary-button">
-        <i class="fas fa-upload icon"></i>
-        Upload Documents
+        <span class="icon">📄</span>
+        Upload Reference Documents
       </button>
       <button id="create-outline" class="secondary-button">
-        <i class="fas fa-list-ul icon"></i>
-        Create Outline
+        <span class="icon">📝</span>
+        Create New Outline
       </button>
     </div>
   </div>

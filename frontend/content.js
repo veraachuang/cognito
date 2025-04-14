@@ -1,9 +1,19 @@
 // Create and inject the sidebar iframe
 let sidebarFrame = null;
 let sidebarVisible = false;
+let shadowRoot = null;
+let observer = null;
 
 // Initialize the content script
 console.log('Content script initialized');
+
+function createShadowContainer() {
+  const container = document.createElement('div');
+  container.id = 'cognito-container';
+  shadowRoot = container.attachShadow({ mode: 'open' });
+  document.body.appendChild(container);
+  return shadowRoot;
+}
 
 function createSidebar() {
   if (sidebarFrame) {
@@ -12,21 +22,102 @@ function createSidebar() {
   }
   
   console.log('Creating sidebar iframe');
+  
+  // Create shadow DOM if it doesn't exist
+  if (!shadowRoot) {
+    shadowRoot = createShadowContainer();
+  }
+
+  // Create styles for shadow DOM
+  const style = document.createElement('style');
+  style.textContent = `
+    .cognito-sidebar {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 350px;
+      height: 100vh;
+      background: white;
+      box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      transition: transform 0.3s ease;
+    }
+  `;
+  shadowRoot.appendChild(style);
+
+  // Create sidebar container
+  const sidebarContainer = document.createElement('div');
+  sidebarContainer.className = 'cognito-sidebar';
+  
+  // Create and setup iframe
   sidebarFrame = document.createElement('iframe');
   sidebarFrame.src = chrome.runtime.getURL('sidebar.html');
-  sidebarFrame.id = 'cognito-sidebar';
   sidebarFrame.style.cssText = `
-    position: fixed;
-    top: 0;
-    right: -350px;
-    width: 350px;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     border: none;
-    z-index: 9999;
-    transition: right 0.3s ease;
+    background: white;
   `;
-  document.body.appendChild(sidebarFrame);
+  
+  sidebarContainer.appendChild(sidebarFrame);
+  shadowRoot.appendChild(sidebarContainer);
+  
   console.log('Sidebar iframe created and appended');
+  
+  // Start observing for Google Docs container
+  setupDocsObserver();
+}
+
+function setupDocsObserver() {
+  if (observer) {
+    observer.disconnect();
+  }
+
+  observer = new MutationObserver((mutations, obs) => {
+    const docsContainer = document.querySelector('.kix-appview-editor');
+    if (docsContainer) {
+      obs.disconnect();
+      adjustDocsLayout();
+      
+      // Continue observing for dynamic changes
+      observer = new MutationObserver(() => adjustDocsLayout());
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style', 'class']
+      });
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+function adjustDocsLayout() {
+  const containers = [
+    '.kix-appview-editor',
+    '.docs-toolbar-wrapper',
+    '.docs-titlebar-badges',
+    '.docs-horizontal-ruler'
+  ];
+
+  const margin = sidebarVisible ? '350px' : '0';
+  
+  containers.forEach(selector => {
+    const element = document.querySelector(selector);
+    if (element) {
+      element.style.marginRight = margin;
+      element.style.width = sidebarVisible ? 'calc(100% - 350px)' : '100%';
+      element.style.transition = 'all 0.3s ease';
+    }
+  });
+
+  // Handle the document page container specifically
+  const pageContainer = document.querySelector('.kix-page');
+  if (pageContainer) {
+    pageContainer.style.marginRight = margin;
+    pageContainer.style.transition = 'margin 0.3s ease';
+  }
 }
 
 function toggleSidebar(activeTab = null) {
@@ -39,31 +130,18 @@ function toggleSidebar(activeTab = null) {
 
   sidebarVisible = !sidebarVisible;
   console.log('Setting sidebar visibility:', sidebarVisible);
-  sidebarFrame.style.right = sidebarVisible ? '0' : '-350px';
+  
+  // Animate sidebar
+  const sidebarContainer = shadowRoot.querySelector('.cognito-sidebar');
+  if (sidebarContainer) {
+    sidebarContainer.style.transform = `translateX(${sidebarVisible ? '0' : '350px'})`;
+  }
 
-  // Adjust the Google Docs layout
-  const docsContent = document.querySelector('.docs-editor-container');
-  const docsEditor = document.querySelector('.docs-editor');
-  const docsContentWrapper = document.querySelector('.docs-content-wrapper');
-  
-  if (docsContent) {
-    docsContent.style.width = sidebarVisible ? 'calc(100% - 350px)' : '100%';
-    docsContent.style.transition = 'width 0.3s ease';
-  }
-  
-  if (docsEditor) {
-    docsEditor.style.width = sidebarVisible ? 'calc(100% - 350px)' : '100%';
-    docsEditor.style.transition = 'width 0.3s ease';
-  }
-  
-  if (docsContentWrapper) {
-    docsContentWrapper.style.width = sidebarVisible ? 'calc(100% - 350px)' : '100%';
-    docsContentWrapper.style.transition = 'width 0.3s ease';
-  }
+  // Adjust Google Docs layout
+  adjustDocsLayout();
 
   if (activeTab && sidebarVisible) {
     console.log('Switching to tab:', activeTab);
-    // Wait for the sidebar to be visible before switching tabs
     setTimeout(() => {
       if (sidebarFrame && sidebarFrame.contentWindow) {
         sidebarFrame.contentWindow.postMessage({ action: 'switchTab', tab: activeTab }, '*');

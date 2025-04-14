@@ -52,14 +52,28 @@ body {
   background: none;
   border: none;
   font-size: 18px;
-  color: #5f6368;
+  color: var(--secondary-text);
   cursor: pointer;
-  padding: 4px;
+  padding: 8px;
   border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
 }
 
 .icon-button:hover {
-  background-color: #f1f3f4;
+  background-color: var(--hover-bg);
+  color: var(--primary-text);
+  transform: rotate(90deg);
+}
+
+.icon-button i {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tabs {
@@ -118,8 +132,19 @@ body {
 }
 
 .upload-icon {
-  font-size: 32px;
-  margin-bottom: 12px;
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: var(--primary-text);
+}
+
+.upload-icon i {
+  opacity: 0.8;
+  transition: all 0.2s ease;
+}
+
+.upload-box:hover .upload-icon i {
+  opacity: 1;
+  transform: translateY(-2px);
 }
 
 .file-list {

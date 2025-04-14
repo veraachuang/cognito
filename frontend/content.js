@@ -2,10 +2,44 @@
 let sidebarFrame = null;
 let sidebarVisible = false;
 let shadowRoot = null;
-let observer = null;
+let docsObserver = null;
+let genericObserver = null;
+let layoutDebounceTimer = null;
 
 // Initialize the content script
 console.log('Content script initialized');
+
+// Cleanup function for observers and elements
+function cleanup() {
+  if (docsObserver) {
+    docsObserver.disconnect();
+    docsObserver = null;
+  }
+  if (genericObserver) {
+    genericObserver.disconnect();
+    genericObserver = null;
+  }
+  if (shadowRoot) {
+    shadowRoot.host.remove();
+    shadowRoot = null;
+  }
+  if (sidebarFrame) {
+    sidebarFrame = null;
+  }
+  sidebarVisible = false;
+}
+
+// Debounce function to prevent rapid layout adjustments
+function debounce(func, wait) {
+  return function executedFunction(...args) {
+    const later = () => {
+      layoutDebounceTimer = null;
+      func(...args);
+    };
+    clearTimeout(layoutDebounceTimer);
+    layoutDebounceTimer = setTimeout(later, wait);
+  };
+}
 
 function createShadowContainer() {
   const container = document.createElement('div');
@@ -28,6 +62,8 @@ function createSidebar() {
     shadowRoot = createShadowContainer();
   }
 
+  sidebarVisible = false;  // Start with sidebar hidden
+
   // Create styles for shadow DOM
   const style = document.createElement('style');
   style.textContent = `
@@ -39,8 +75,15 @@ function createSidebar() {
       height: 100vh;
       background: white;
       box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
-      z-index: 1000;
+      z-index: 2147483647;
       transition: transform 0.3s ease;
+      user-select: none;
+      -webkit-user-select: none;
+      pointer-events: auto;
+      transform: translateX(350px);  // Start hidden
+    }
+    .cognito-content-shift {
+      transition: margin-right 0.3s ease, width 0.3s ease;
     }
   `;
   shadowRoot.appendChild(style);
@@ -63,25 +106,34 @@ function createSidebar() {
   shadowRoot.appendChild(sidebarContainer);
   
   console.log('Sidebar iframe created and appended');
+
+  // Add class to body for content shifting
+  document.body.classList.add('cognito-content-shift');
   
-  // Start observing for Google Docs container
+  // Setup observers for layout adjustment
   setupDocsObserver();
+  setupGenericObserver();
 }
 
 function setupDocsObserver() {
-  if (observer) {
-    observer.disconnect();
+  if (docsObserver) {
+    docsObserver.disconnect();
   }
 
-  observer = new MutationObserver((mutations, obs) => {
+  // Create a one-time observer to wait for the editor to load
+  docsObserver = new MutationObserver((mutations, obs) => {
     const docsContainer = document.querySelector('.kix-appview-editor');
     if (docsContainer) {
       obs.disconnect();
-      adjustDocsLayout();
       
-      // Continue observing for dynamic changes
-      observer = new MutationObserver(() => adjustDocsLayout());
-      observer.observe(document.body, {
+      // Set up the actual observer for layout changes
+      docsObserver = new MutationObserver(debounce(() => {
+        if (document.querySelector('.kix-appview-editor')) {
+          adjustDocsLayout();
+        }
+      }, 100));
+
+      docsObserver.observe(document.body, {
         childList: true,
         subtree: true,
         attributes: true,
@@ -90,24 +142,54 @@ function setupDocsObserver() {
     }
   });
 
-  observer.observe(document.body, { childList: true, subtree: true });
+  docsObserver.observe(document.body, { childList: true, subtree: true });
+}
+
+function setupGenericObserver() {
+  if (genericObserver) {
+    genericObserver.disconnect();
+  }
+
+  // Add margin to body or main container
+  const mainContainer = document.querySelector('main') || document.querySelector('#main') || document.body;
+  if (mainContainer) {
+    mainContainer.style.transition = 'margin-right 0.3s ease';
+  }
+
+  // Create observer for dynamic content
+  genericObserver = new MutationObserver(debounce(() => {
+    if (sidebarVisible) {
+      adjustGenericLayout();
+    }
+  }, 100));
+
+  genericObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style', 'class']
+  });
 }
 
 function adjustDocsLayout() {
-  const containers = [
+  // Main content containers that need margin and width adjustment
+  const mainContainers = [
     '.kix-appview-editor',
     '.docs-toolbar-wrapper',
     '.docs-titlebar-badges',
-    '.docs-horizontal-ruler'
+    '.docs-horizontal-ruler',
+    '.docs-menubar',
+    '.docs-header'
   ];
 
   const margin = sidebarVisible ? '350px' : '0';
   
-  containers.forEach(selector => {
+  // Adjust main content containers
+  mainContainers.forEach(selector => {
     const element = document.querySelector(selector);
     if (element) {
       element.style.marginRight = margin;
-      element.style.width = sidebarVisible ? 'calc(100% - 350px)' : '100%';
+      element.style.width = sidebarVisible ? `calc(100% - ${margin})` : '100%';
       element.style.transition = 'all 0.3s ease';
     }
   });
@@ -117,6 +199,138 @@ function adjustDocsLayout() {
   if (pageContainer) {
     pageContainer.style.marginRight = margin;
     pageContainer.style.transition = 'margin 0.3s ease';
+  }
+
+  // Adjust Google Docs side panel container
+  const sidePanelContainer = document.querySelector('.companion-app-switcher-container');
+  if (sidePanelContainer) {
+    if (sidebarVisible) {
+      sidePanelContainer.style.right = margin;
+      sidePanelContainer.style.width = 'var(--companion-app-switcher-width)';
+    } else {
+      sidePanelContainer.style.right = '0';
+      sidePanelContainer.style.width = '';
+    }
+    sidePanelContainer.style.transition = 'right 0.3s ease';
+  }
+
+  // Handle responsive UI elements
+  if (sidebarVisible) {
+    // Add compact mode class to body
+    document.body.classList.add('docs-size-compact');
+    
+    // Adjust share button to compact mode
+    const shareButtonText = document.querySelector('.docs-share-button-label');
+    if (shareButtonText) {
+      shareButtonText.style.display = 'none';
+    }
+
+    // Make menu bar more compact
+    const menuBar = document.querySelector('.docs-menubar');
+    if (menuBar) {
+      // Adjust menu bar container
+      menuBar.style.padding = '0 4px';
+      
+      // Adjust individual menu items
+      const menuItems = menuBar.querySelectorAll('.goog-menu-button, .docs-menu-button');
+      menuItems.forEach(item => {
+        item.style.padding = '0 3px';
+        item.style.minWidth = '20px';
+        // Hide menu item text, keep only first letter
+        const menuText = item.querySelector('.goog-menu-button-caption, .docs-menu-button-label');
+        if (menuText) {
+          const text = menuText.textContent;
+          if (text && text.length > 1) {
+            menuText.setAttribute('data-full-text', text);
+            menuText.textContent = text[0];
+          }
+        }
+      });
+    }
+
+    // Adjust toolbar buttons to be more compact
+    const toolbarButtons = document.querySelectorAll('.goog-toolbar-button, .docs-toolbar-button');
+    toolbarButtons.forEach(button => {
+      button.style.padding = '0 4px';
+      button.style.margin = '0 1px';
+    });
+
+    // Make header more compact
+    const header = document.querySelector('.docs-titlebar-buttons');
+    if (header) {
+      header.style.gap = '4px';
+      header.style.padding = '0 8px';
+    }
+
+    // Handle side panel toggle button
+    const sidePanelToggle = document.querySelector('.companion-collapser-button-container');
+    if (sidePanelToggle) {
+      sidePanelToggle.style.right = margin;
+      sidePanelToggle.style.transition = 'right 0.3s ease';
+    }
+
+  } else {
+    // Remove compact mode
+    document.body.classList.remove('docs-size-compact');
+    
+    // Restore share button text
+    const shareButtonText = document.querySelector('.docs-share-button-label');
+    if (shareButtonText) {
+      shareButtonText.style.display = '';
+    }
+
+    // Restore menu bar
+    const menuBar = document.querySelector('.docs-menubar');
+    if (menuBar) {
+      // Restore menu bar container
+      menuBar.style.padding = '';
+      
+      // Restore menu items
+      const menuItems = menuBar.querySelectorAll('.goog-menu-button, .docs-menu-button');
+      menuItems.forEach(item => {
+        item.style.padding = '';
+        item.style.minWidth = '';
+        // Restore menu item text
+        const menuText = item.querySelector('.goog-menu-button-caption, .docs-menu-button-label');
+        if (menuText && menuText.hasAttribute('data-full-text')) {
+          menuText.textContent = menuText.getAttribute('data-full-text');
+          menuText.removeAttribute('data-full-text');
+        }
+      });
+    }
+
+    // Restore toolbar buttons
+    const toolbarButtons = document.querySelectorAll('.goog-toolbar-button, .docs-toolbar-button');
+    toolbarButtons.forEach(button => {
+      button.style.padding = '';
+      button.style.margin = '';
+    });
+
+    // Restore header
+    const header = document.querySelector('.docs-titlebar-buttons');
+    if (header) {
+      header.style.gap = '';
+      header.style.padding = '';
+    }
+
+    // Restore side panel toggle button
+    const sidePanelToggle = document.querySelector('.companion-collapser-button-container');
+    if (sidePanelToggle) {
+      sidePanelToggle.style.right = '0';
+    }
+  }
+
+  // Also adjust generic layout
+  adjustGenericLayout();
+}
+
+function adjustGenericLayout() {
+  const mainContainer = document.querySelector('main') || document.querySelector('#main') || document.body;
+  const margin = sidebarVisible ? '350px' : '0';
+  
+  if (mainContainer) {
+    mainContainer.style.marginRight = margin;
+    mainContainer.style.width = sidebarVisible ? `calc(100% - ${margin})` : '100%';
   }
 }
 
@@ -134,7 +348,7 @@ function toggleSidebar(activeTab = null) {
   // Animate sidebar
   const sidebarContainer = shadowRoot.querySelector('.cognito-sidebar');
   if (sidebarContainer) {
-    sidebarContainer.style.transform = `translateX(${sidebarVisible ? '0' : '350px'})`;
+    sidebarContainer.style.transform = sidebarVisible ? 'none' : 'translateX(350px)';
   }
 
   // Adjust Google Docs layout
@@ -153,12 +367,17 @@ function toggleSidebar(activeTab = null) {
   }
 }
 
-// Listen for messages from the popup
+// Listen for extension unload/reload
+window.addEventListener('beforeunload', cleanup);
+
+// Handle extension reload
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Content script received message:', request);
   
   if (request.action === 'toggleSidebar') {
     console.log('Handling toggleSidebar action');
+    // Clean up existing instances before creating new ones
+    cleanup();
     toggleSidebar(request.tab);
     sendResponse({ success: true });
   } else {

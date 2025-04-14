@@ -9,10 +9,10 @@
     "scripting"
   ],
   "host_permissions": [
-    "http://localhost:5000/*"
+    "*://localhost/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://localhost:5000"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src *://localhost/* http://127.0.0.1:*/"
   },
   "action": {
     "default_popup": "frontend/popup.html",

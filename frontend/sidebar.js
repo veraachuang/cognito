@@ -132,14 +132,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const cursorPosition = await getCursorPosition();
       
       // Call GPT API to generate outline
-      const response = await fetch('http://localhost:5001/api/generate-outline', {
+      const response = await fetch('http://127.0.0.1:5000/api/generate-outline', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
         mode: 'cors',
-        credentials: 'include',
         body: JSON.stringify({ 
           text,
           cursor_position: cursorPosition
@@ -147,7 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate outline');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();

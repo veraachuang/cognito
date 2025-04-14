@@ -3,16 +3,17 @@
 <head>
   <title>Cognito Assistant</title>
   <link rel="stylesheet" href="sidebar.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
   <div class="sidebar-container">
     <div class="header">
       <h1>Cognito Assistant</h1>
-      <button id="close-sidebar" class="icon-button">✕</button>
+      <button id="close-sidebar" class="icon-button"><i class="fas fa-times"></i></button>
     </div>
 
     <div class="tabs">
-      <button class="tab-button" data-tab="upload">Upload</button>
+      <button class="tab-button active" data-tab="upload">Upload</button>
       <button class="tab-button" data-tab="braindump">Brain Dump</button>
       <button class="tab-button" data-tab="outline">Outline</button>
       <button class="tab-button" data-tab="analysis">Analysis</button>
@@ -20,12 +21,12 @@
 
     <div class="tab-content">
       <!-- Upload Tab -->
-      <div id="upload" class="tab-panel">
+      <div id="upload" class="tab-panel active">
         <div class="upload-section">
           <h2>Upload Reference Documents</h2>
           <p>Upload your previous writing samples to help AI understand your style.</p>
           <div class="upload-box" id="upload-dropzone">
-            <div class="upload-icon">📄</div>
+            <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
             <p>Drag and drop files here or</p>
             <button class="secondary-button" id="upload-button">Choose Files</button>
             <input type="file" id="file-input" multiple accept=".doc,.docx,.pdf" style="display: none;">

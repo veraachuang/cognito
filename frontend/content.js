@@ -1,17 +1,14 @@
-// Create and inject the sidebar iframe
+// content.js
 let sidebarFrame = null;
 let sidebarVisible = false;
+let lastText = "";
+let canvasPollingInterval;
 
-// Initialize the content script
-console.log('Content script initialized');
+console.log('[Cognito] Content script initialized');
 
 function createSidebar() {
-  if (sidebarFrame) {
-    console.log('Sidebar already exists');
-    return;
-  }
-  
-  console.log('Creating sidebar iframe');
+  if (sidebarFrame) return;
+
   sidebarFrame = document.createElement('iframe');
   sidebarFrame.src = chrome.runtime.getURL('sidebar.html');
   sidebarFrame.id = 'cognito-sidebar';
@@ -26,76 +23,55 @@ function createSidebar() {
     transition: right 0.3s ease;
   `;
   document.body.appendChild(sidebarFrame);
-  console.log('Sidebar iframe created and appended');
 }
 
 function toggleSidebar(activeTab = null) {
-  console.log('Toggling sidebar, activeTab:', activeTab);
-  
-  if (!sidebarFrame) {
-    console.log('No sidebar frame found, creating one');
-    createSidebar();
-  }
+  if (!sidebarFrame) createSidebar();
 
   sidebarVisible = !sidebarVisible;
-  console.log('Setting sidebar visibility:', sidebarVisible);
   sidebarFrame.style.right = sidebarVisible ? '0' : '-350px';
 
-  // Adjust the Google Docs layout
   const docsContent = document.querySelector('.docs-editor-container');
   const docsEditor = document.querySelector('.docs-editor');
   const docsContentWrapper = document.querySelector('.docs-content-wrapper');
-  
-  if (docsContent) {
-    docsContent.style.width = sidebarVisible ? 'calc(100% - 350px)' : '100%';
-    docsContent.style.transition = 'width 0.3s ease';
-  }
-  
-  if (docsEditor) {
-    docsEditor.style.width = sidebarVisible ? 'calc(100% - 350px)' : '100%';
-    docsEditor.style.transition = 'width 0.3s ease';
-  }
-  
-  if (docsContentWrapper) {
-    docsContentWrapper.style.width = sidebarVisible ? 'calc(100% - 350px)' : '100%';
-    docsContentWrapper.style.transition = 'width 0.3s ease';
+
+  [docsContent, docsEditor, docsContentWrapper].forEach(el => {
+    if (el) {
+      el.style.width = sidebarVisible ? 'calc(100% - 350px)' : '100%';
+      el.style.transition = 'width 0.3s ease';
+    }
+  });
+
+  if (sidebarVisible) {
+    setTimeout(() => startCanvasModePolling(), 1000);
+  } else {
+    clearInterval(canvasPollingInterval);
   }
 
   if (activeTab && sidebarVisible) {
-    console.log('Switching to tab:', activeTab);
-    // Wait for the sidebar to be visible before switching tabs
     setTimeout(() => {
-      if (sidebarFrame && sidebarFrame.contentWindow) {
+      if (sidebarFrame?.contentWindow) {
         sidebarFrame.contentWindow.postMessage({ action: 'switchTab', tab: activeTab }, '*');
-        console.log('Tab switch message sent');
-      } else {
-        console.error('Sidebar frame or contentWindow not available');
       }
     }, 300);
   }
 }
 
-// Listen for messages from the popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Content script received message:', request);
-  
   if (request.action === 'toggleSidebar') {
-    console.log('Handling toggleSidebar action');
     toggleSidebar(request.tab);
     sendResponse({ success: true });
+  } else if (request.action === 'fetchDocText') {
+    const text = getVisibleGoogleDocsText();
+    sendResponse({ success: true, text });
   } else {
-    console.log('Unknown action:', request.action);
     sendResponse({ success: false, error: 'Unknown action' });
   }
-  
-  return true; // Keep the message channel open for async response
+  return true;
 });
 
-// Listen for messages from the sidebar iframe
 window.addEventListener('message', (event) => {
-  // Make sure the message is from our sidebar
   if (event.source !== sidebarFrame?.contentWindow) return;
-
   const { action, data } = event.data;
 
   switch (action) {
@@ -118,43 +94,15 @@ window.addEventListener('message', (event) => {
   }
 });
 
-// Function to handle file uploads
-async function handleFileUpload(files) {
-  console.log('Starting file upload');
-  const formData = new FormData();
-  files.forEach(file => formData.append('files', file));
-
-  try {
-    const response = await fetch('http://localhost:5000/api/upload', {
-      method: 'POST',
-      body: formData
-    });
-    
-    const result = await response.json();
-    console.log('Upload successful:', result);
-    sidebarFrame.contentWindow.postMessage({
-      action: 'uploadComplete',
-      success: true,
-      data: result
-    }, '*');
-  } catch (error) {
-    console.error('Upload failed:', error);
-    sidebarFrame.contentWindow.postMessage({
-      action: 'uploadComplete',
-      success: false,
-      error: error.message
-    }, '*');
-  }
+function handleFileUpload(files) {
+  console.log('[Cognito] Received files:', files);
 }
 
-// Function to get cursor position in Google Doc
 function getCursorPosition() {
   const selection = window.getSelection();
   if (!selection.rangeCount) return null;
-
   const range = selection.getRangeAt(0);
   const rect = range.getBoundingClientRect();
-  
   return {
     x: rect.left,
     y: rect.top,
@@ -163,28 +111,82 @@ function getCursorPosition() {
   };
 }
 
-// Function to apply the generated outline to the Google Doc
 function applyOutlineToDoc(outline, cursorPosition) {
   const doc = document.querySelector('div[contenteditable="true"]');
   if (!doc) return;
 
-  // Create outline text
   const outlineText = outline.sections.map((section, index) => {
     const keyPoints = section.key_points.map((point, i) => `  ${i + 1}. ${point}`).join('\n');
     return `${index + 1}. ${section.title}\n${keyPoints}`;
   }).join('\n\n');
-  
-  // Create a new div with the outline
+
   const outlineElement = document.createElement('div');
   outlineElement.textContent = outlineText;
-  
+
   if (cursorPosition && cursorPosition.node) {
-    // Insert at cursor position
     const range = document.createRange();
     range.setStart(cursorPosition.node, cursorPosition.offset);
     range.insertNode(outlineElement);
   } else {
-    // Insert at the beginning
     doc.insertBefore(outlineElement, doc.firstChild);
   }
-} 
+}
+
+function getVisibleGoogleDocsText() {
+  const container = document.querySelector('.kix-appview');
+  if (!container) {
+    console.warn('[Cognito] No .kix-appview container found');
+    return '';
+  }
+
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => {
+      const text = node.textContent.trim();
+      return text ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+
+  let text = '';
+  while (walker.nextNode()) {
+    text += walker.currentNode.textContent + ' ';
+  }
+
+  text = text.replace(/\s+/g, ' ').trim();
+  if (!text) console.warn('[Cognito] Still found no text in doc');
+  return text;
+}
+
+
+function startCanvasModePolling() {
+  clearInterval(canvasPollingInterval);
+
+  canvasPollingInterval = setInterval(() => {
+    const rawText = getVisibleGoogleDocsText();
+    const text = rawText.replace(/\s+/g, ' ').trim();
+
+    // Always log (optional for debug)
+    console.log('[Cognito] Polling text:', text.slice(0, 100));
+
+    const wordCount = text.split(/\s+/).length;
+    const readingTime = Math.ceil(wordCount / 200);
+
+    // Always send message, even if text is the same
+    if (sidebarFrame?.contentWindow) {
+      sidebarFrame.contentWindow.postMessage({
+        source: 'cognito-content',
+        action: 'liveTextUpdate',
+        data: text,
+        features: {
+          wordCount,
+          readingTime: `${readingTime} min`
+        }
+      }, '*');
+
+      console.log('[Cognito] Sent live text update');
+    }
+
+    // Save lastText if needed for fallback
+    lastText = text;
+  }, 2000);
+}
+

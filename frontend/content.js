@@ -1,13 +1,8 @@
-// Create and inject the sidebar iframe
+// content.js
 let sidebarFrame = null;
 let sidebarVisible = false;
-let shadowRoot = null;
-let docsObserver = null;
-let genericObserver = null;
-let layoutDebounceTimer = null;
 
-// Initialize the content script
-console.log('Content script initialized');
+console.log('[Cognito] Content script initialized');
 
 // Cleanup function for observers and elements
 function cleanup() {
@@ -368,12 +363,7 @@ function adjustGenericLayout() {
 }
 
 function toggleSidebar(activeTab = null) {
-  console.log('Toggling sidebar, activeTab:', activeTab);
-  
-  if (!sidebarFrame) {
-    console.log('No sidebar frame found, creating one');
-    createSidebar();
-  }
+  if (!sidebarFrame) createSidebar();
 
   sidebarVisible = !sidebarVisible;
   console.log('Setting sidebar visibility:', sidebarVisible);
@@ -390,11 +380,8 @@ function toggleSidebar(activeTab = null) {
   if (activeTab && sidebarVisible) {
     console.log('Switching to tab:', activeTab);
     setTimeout(() => {
-      if (sidebarFrame && sidebarFrame.contentWindow) {
+      if (sidebarFrame?.contentWindow) {
         sidebarFrame.contentWindow.postMessage({ action: 'switchTab', tab: activeTab }, '*');
-        console.log('Tab switch message sent');
-      } else {
-        console.error('Sidebar frame or contentWindow not available');
       }
     }, 300);
   }
@@ -405,25 +392,22 @@ window.addEventListener('beforeunload', cleanup);
 
 // Handle extension reload
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Content script received message:', request);
-  
   if (request.action === 'toggleSidebar') {
     console.log('Handling toggleSidebar action');
     // Clean up existing instances before creating new ones
     cleanup();
     toggleSidebar(request.tab);
     sendResponse({ success: true });
+  } else if (request.action === 'fetchDocText') {
+    const text = getVisibleGoogleDocsText();
+    sendResponse({ success: true, text });
   } else {
-    console.log('Unknown action:', request.action);
     sendResponse({ success: false, error: 'Unknown action' });
   }
-  
-  return true; // Keep the message channel open for async response
+  return true;
 });
 
-// Listen for messages from the sidebar iframe
 window.addEventListener('message', (event) => {
-  // Make sure the message is from our sidebar
   console.log('Received message event:', event.data);
   console.log('Event source:', event.source);
   console.log('Sidebar frame:', sidebarFrame?.contentWindow);
@@ -432,7 +416,6 @@ window.addEventListener('message', (event) => {
     console.log('Message source does not match sidebar frame');
     return;
   }
-
   const { action, data } = event.data;
   console.log('Processing action:', action, 'with data:', data);
 
@@ -495,43 +478,15 @@ window.addEventListener('message', (event) => {
   }
 });
 
-// Function to handle file uploads
-async function handleFileUpload(files) {
-  console.log('Starting file upload');
-  const formData = new FormData();
-  files.forEach(file => formData.append('files', file));
-
-  try {
-    const response = await fetch('http://localhost:5000/api/upload', {
-      method: 'POST',
-      body: formData
-    });
-    
-    const result = await response.json();
-    console.log('Upload successful:', result);
-    sidebarFrame.contentWindow.postMessage({
-      action: 'uploadComplete',
-      success: true,
-      data: result
-    }, '*');
-  } catch (error) {
-    console.error('Upload failed:', error);
-    sidebarFrame.contentWindow.postMessage({
-      action: 'uploadComplete',
-      success: false,
-      error: error.message
-    }, '*');
-  }
+  function handleFileUpload(files) {
+  console.log('[Cognito] Received files:', files);
 }
 
-// Function to get cursor position in Google Doc
 function getCursorPosition() {
   const selection = window.getSelection();
   if (!selection.rangeCount) return null;
-
   const range = selection.getRangeAt(0);
   const rect = range.getBoundingClientRect();
-  
   return {
     x: rect.left,
     y: rect.top,
@@ -539,28 +494,23 @@ function getCursorPosition() {
   };
 }
 
-// Function to apply the generated outline to the Google Doc
 function applyOutlineToDoc(outline, cursorPosition) {
   const doc = document.querySelector('div[contenteditable="true"]');
   if (!doc) return;
 
-  // Create outline text
   const outlineText = outline.sections.map((section, index) => {
     const keyPoints = section.key_points.map((point, i) => `  ${i + 1}. ${point}`).join('\n');
     return `${index + 1}. ${section.title}\n${keyPoints}`;
   }).join('\n\n');
-  
-  // Create a new div with the outline
+
   const outlineElement = document.createElement('div');
   outlineElement.textContent = outlineText;
-  
+
   if (cursorPosition && cursorPosition.node) {
-    // Insert at cursor position
     const range = document.createRange();
     range.setStart(cursorPosition.node, cursorPosition.offset);
     range.insertNode(outlineElement);
   } else {
-    // Insert at the beginning
     doc.insertBefore(outlineElement, doc.firstChild);
   }
 }
@@ -989,4 +939,63 @@ const integration = new GoogleDocsIntegration();
 // Export for testing
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = GoogleDocsIntegration;
-} 
+}
+
+function getVisibleGoogleDocsText() {
+  const container = document.querySelector('.kix-appview');
+  if (!container) {
+    console.warn('[Cognito] No .kix-appview container found');
+    return '';
+  }
+
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => {
+      const text = node.textContent.trim();
+      return text ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+
+  let text = '';
+  while (walker.nextNode()) {
+    text += walker.currentNode.textContent + ' ';
+  }
+
+  text = text.replace(/\s+/g, ' ').trim();
+  if (!text) console.warn('[Cognito] Still found no text in doc');
+  return text;
+}
+
+
+function startCanvasModePolling() {
+  clearInterval(canvasPollingInterval);
+
+  canvasPollingInterval = setInterval(() => {
+    const rawText = getVisibleGoogleDocsText();
+    const text = rawText.replace(/\s+/g, ' ').trim();
+
+    // Always log (optional for debug)
+    console.log('[Cognito] Polling text:', text.slice(0, 100));
+
+    const wordCount = text.split(/\s+/).length;
+    const readingTime = Math.ceil(wordCount / 200);
+
+    // Always send message, even if text is the same
+    if (sidebarFrame?.contentWindow) {
+      sidebarFrame.contentWindow.postMessage({
+        source: 'cognito-content',
+        action: 'liveTextUpdate',
+        data: text,
+        features: {
+          wordCount,
+          readingTime: `${readingTime} min`
+        }
+      }, '*');
+
+      console.log('[Cognito] Sent live text update');
+    }
+
+    // Save lastText if needed for fallback
+    lastText = text;
+  }, 2000);
+}
+

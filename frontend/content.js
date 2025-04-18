@@ -179,7 +179,8 @@ function adjustDocsLayout() {
     '.docs-titlebar-badges',
     '.docs-horizontal-ruler',
     '.docs-menubar',
-    '.docs-header'
+    '.docs-header',
+    '.companion-guest-app-switcher-container'
   ];
 
   const margin = sidebarVisible ? '350px' : '0';
@@ -188,9 +189,15 @@ function adjustDocsLayout() {
   mainContainers.forEach(selector => {
     const element = document.querySelector(selector);
     if (element) {
-      element.style.marginRight = margin;
-      element.style.width = sidebarVisible ? `calc(100% - ${margin})` : '100%';
-      element.style.transition = 'all 0.3s ease';
+      if (selector === '.companion-guest-app-switcher-container') {
+        // Special handling for companion container
+        element.style.right = margin;
+        element.style.transition = 'right 0.3s ease';
+      } else {
+        element.style.marginRight = margin;
+        element.style.width = sidebarVisible ? `calc(100% - ${margin})` : '100%';
+        element.style.transition = 'all 0.3s ease';
+      }
     }
   });
 
@@ -201,17 +208,39 @@ function adjustDocsLayout() {
     pageContainer.style.transition = 'margin 0.3s ease';
   }
 
-  // Adjust Google Docs side panel container
-  const sidePanelContainer = document.querySelector('.companion-app-switcher-container');
-  if (sidePanelContainer) {
-    if (sidebarVisible) {
-      sidePanelContainer.style.right = margin;
-      sidePanelContainer.style.width = 'var(--companion-app-switcher-width)';
-    } else {
-      sidePanelContainer.style.right = '0';
-      sidePanelContainer.style.width = '';
+  // Adjust Google Docs side panel containers
+  const sidePanelContainers = [
+    '.companion-app-switcher-container',
+    '.companion-guest-app-switcher-container'
+  ];
+
+  sidePanelContainers.forEach(selector => {
+    const container = document.querySelector(selector);
+    if (container) {
+      if (sidebarVisible) {
+        container.style.right = margin;
+        container.style.width = 'var(--companion-app-switcher-width)';
+      } else {
+        container.style.right = '0';
+        container.style.width = '';
+      }
+      container.style.transition = 'right 0.3s ease';
     }
-    sidePanelContainer.style.transition = 'right 0.3s ease';
+  });
+
+  // Adjust toolbar wrapper specifically
+  const toolbarWrapper = document.querySelector('.docs-toolbar-wrapper');
+  if (toolbarWrapper) {
+    toolbarWrapper.style.marginRight = margin;
+    toolbarWrapper.style.width = sidebarVisible ? `calc(100% - ${margin})` : '100%';
+    toolbarWrapper.style.transition = 'all 0.3s ease';
+    
+    // Ensure the inner toolbar elements are properly aligned
+    const innerToolbar = toolbarWrapper.querySelector('.docs-toolbar');
+    if (innerToolbar) {
+      innerToolbar.style.width = '100%';
+      innerToolbar.style.transition = 'all 0.3s ease';
+    }
   }
 
   // Handle responsive UI elements
@@ -262,12 +291,14 @@ function adjustDocsLayout() {
       header.style.padding = '0 8px';
     }
 
-    // Handle side panel toggle button
-    const sidePanelToggle = document.querySelector('.companion-collapser-button-container');
-    if (sidePanelToggle) {
-      sidePanelToggle.style.right = margin;
-      sidePanelToggle.style.transition = 'right 0.3s ease';
-    }
+    // Handle side panel toggle buttons
+    const sidePanelToggles = document.querySelectorAll('.companion-collapser-button-container, .companion-guest-collapser-button-container');
+    sidePanelToggles.forEach(toggle => {
+      if (toggle) {
+        toggle.style.right = margin;
+        toggle.style.transition = 'right 0.3s ease';
+      }
+    });
 
   } else {
     // Remove compact mode
@@ -313,11 +344,13 @@ function adjustDocsLayout() {
       header.style.padding = '';
     }
 
-    // Restore side panel toggle button
-    const sidePanelToggle = document.querySelector('.companion-collapser-button-container');
-    if (sidePanelToggle) {
-      sidePanelToggle.style.right = '0';
-    }
+    // Restore side panel toggle buttons
+    const sidePanelToggles = document.querySelectorAll('.companion-collapser-button-container, .companion-guest-collapser-button-container');
+    sidePanelToggles.forEach(toggle => {
+      if (toggle) {
+        toggle.style.right = '0';
+      }
+    });
   }
 
   // Also adjust generic layout
@@ -391,27 +424,74 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Listen for messages from the sidebar iframe
 window.addEventListener('message', (event) => {
   // Make sure the message is from our sidebar
-  if (event.source !== sidebarFrame?.contentWindow) return;
+  console.log('Received message event:', event.data);
+  console.log('Event source:', event.source);
+  console.log('Sidebar frame:', sidebarFrame?.contentWindow);
+  
+  if (event.source !== sidebarFrame?.contentWindow) {
+    console.log('Message source does not match sidebar frame');
+    return;
+  }
 
   const { action, data } = event.data;
+  console.log('Processing action:', action, 'with data:', data);
 
   switch (action) {
     case 'closeSidebar':
+      console.log('Handling closeSidebar action');
       toggleSidebar();
       break;
     case 'uploadFiles':
+      console.log('Handling uploadFiles action');
       handleFileUpload(data.files);
       break;
     case 'applyOutline':
-      applyOutlineToDoc(data.outline, data.cursor_position);
+      console.log('Handling applyOutline action');
+      console.log('Raw outline data:', data.outline);
+      
+      // Ensure outline data is properly structured
+      if (!data.outline) {
+        console.error('No outline data provided');
+        return;
+      }
+
+      // Parse the outline data, handling both string and array formats
+      let title = '';
+      let keyPoints = [];
+      
+      if (typeof data.outline === 'string') {
+        // If it's a single string, use it as the title
+        title = data.outline;
+      } else if (Array.isArray(data.outline)) {
+        // If it's an array, first element is title, rest are key points
+        title = data.outline[0] || '';
+        keyPoints = data.outline.slice(1) || [];
+      } else if (typeof data.outline === 'object') {
+        // If it's an object with title and points
+        title = data.outline.title || '';
+        keyPoints = data.outline.points || [];
+      }
+
+      const parsedOutline = {
+        sections: [{
+          title: title,
+          key_points: Array.isArray(keyPoints) ? keyPoints.map(point => point.toString().trim()) : []
+        }]
+      };
+      
+      console.log('Parsed outline:', parsedOutline);
+      integration.applyOutlineToDocument(parsedOutline);
       break;
     case 'getCursorPosition':
+      console.log('Handling getCursorPosition action');
       const position = getCursorPosition();
       sidebarFrame.contentWindow.postMessage({
         action: 'cursorPosition',
         position: position
       }, '*');
       break;
+    default:
+      console.log('Unknown action received:', action);
   }
 });
 
@@ -455,8 +535,7 @@ function getCursorPosition() {
   return {
     x: rect.left,
     y: rect.top,
-    node: range.startContainer,
-    offset: range.startOffset
+    position: selection.toString()
   };
 }
 
@@ -484,4 +563,430 @@ function applyOutlineToDoc(outline, cursorPosition) {
     // Insert at the beginning
     doc.insertBefore(outlineElement, doc.firstChild);
   }
+}
+
+// Unique prefix for scoped class names
+const CLASS_PREFIX = 'cognito-ext';
+
+class GoogleDocsIntegration {
+    constructor() {
+        this.sidebarFrame = null;
+        this.docIframe = null;
+        this.observer = null;
+        this.isInitialized = false;
+        this.initialize().catch(console.error);
+    }
+
+    async initialize() {
+        if (this.isInitialized) return;
+        
+        // Wait for Google Docs to fully load
+        await this.waitForDocsLoad();
+        
+        // Initialize components
+        this.injectSidebar();
+        this.setupDocumentObserver();
+        this.adjustDocsUI();
+        
+        // Setup message listeners
+        this.setupMessageHandlers();
+        
+        this.isInitialized = true;
+    }
+
+    async waitForDocsLoad() {
+        return new Promise(resolve => {
+            const checkForIframe = () => {
+                // Google Docs main editor iframe
+                this.docIframe = document.querySelector('iframe.docs-editor-container');
+                
+                if (this.docIframe?.contentDocument?.body) {
+                    resolve();
+                } else {
+                    setTimeout(checkForIframe, 100);
+                }
+            };
+            checkForIframe();
+        });
+    }
+
+    injectSidebar() {
+        // Create sidebar iframe
+        this.sidebarFrame = document.createElement('iframe');
+        this.sidebarFrame.src = chrome.runtime.getURL('frontend/sidebar.html');
+        this.sidebarFrame.className = `${CLASS_PREFIX}-sidebar`;
+        
+        // Apply sidebar styles
+        Object.assign(this.sidebarFrame.style, {
+            position: 'fixed',
+            top: '0',
+            right: '0',
+            width: '300px',
+            height: '100vh',
+            border: 'none',
+            backgroundColor: '#ffffff',
+            boxShadow: '-2px 0 5px rgba(0, 0, 0, 0.1)',
+            zIndex: '9999'
+        });
+
+        // Inject sidebar into page
+        document.body.appendChild(this.sidebarFrame);
+    }
+
+    adjustDocsUI() {
+        // Push Google Docs UI to the left
+        const docsContainer = document.querySelector('.docs-editor-container').parentElement;
+        if (docsContainer) {
+            Object.assign(docsContainer.style, {
+                marginRight: '300px',
+                width: 'calc(100% - 300px)'
+            });
+        }
+
+        // Adjust other Google Docs elements
+        const topBar = document.getElementById('docs-chrome');
+        if (topBar) {
+            Object.assign(topBar.style, {
+                marginRight: '300px',
+                width: 'calc(100% - 300px)'
+            });
+        }
+    }
+
+    setupDocumentObserver() {
+        // Create MutationObserver to track document changes
+        this.observer = new MutationObserver(mutations => {
+            this.handleDocumentChanges(mutations);
+        });
+
+        // Start observing the document body
+        const config = {
+            childList: true,
+            subtree: true,
+            characterData: true
+        };
+
+        if (this.docIframe?.contentDocument?.body) {
+            this.observer.observe(this.docIframe.contentDocument.body, config);
+        }
+    }
+
+    handleDocumentChanges(mutations) {
+        // Debounce the change handler to avoid too frequent updates
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = setTimeout(() => {
+            const text = this.extractVisibleText();
+            this.notifySidebarOfChanges(text);
+        }, 500);
+    }
+
+    extractVisibleText() {
+        if (!this.docIframe?.contentDocument?.body) return '';
+
+        // Get all text nodes from the document
+        const walker = document.createTreeWalker(
+            this.docIframe.contentDocument.body,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let text = '';
+        let node;
+        
+        while (node = walker.nextNode()) {
+            // Skip hidden elements
+            if (this.isNodeVisible(node)) {
+                text += node.textContent + ' ';
+            }
+        }
+
+        return text.trim();
+    }
+
+    isNodeVisible(node) {
+        const element = node.parentElement;
+        if (!element) return false;
+
+        const style = window.getComputedStyle(element);
+        return style.display !== 'none' && 
+               style.visibility !== 'hidden' && 
+               style.opacity !== '0';
+    }
+
+    notifySidebarOfChanges(text) {
+        if (this.sidebarFrame) {
+            this.sidebarFrame.contentWindow.postMessage({
+                action: 'documentChanged',
+                text: text
+            }, '*');
+        }
+    }
+
+    setupMessageHandlers() {
+        // Listen for messages from sidebar
+        window.addEventListener('message', async (event) => {
+            // Verify message origin
+            if (event.source !== this.sidebarFrame?.contentWindow) return;
+
+            const { action, data } = event.data;
+
+            switch (action) {
+                case 'getCursorPosition':
+                    const position = this.getCursorPosition();
+                    event.source.postMessage({
+                        action: 'cursorPosition',
+                        position: position
+                    }, '*');
+                    break;
+
+                case 'applyOutline':
+                    await this.applyOutlineToDocument(data.outline);
+                    break;
+
+                case 'closeSidebar':
+                    this.removeSidebar();
+                    break;
+            }
+        });
+    }
+
+    getCursorPosition() {
+        // Get cursor position from Google Docs
+        const cursor = this.docIframe?.contentDocument?.querySelector('.kix-cursor');
+        if (!cursor) return null;
+
+        const rect = cursor.getBoundingClientRect();
+        return {
+            x: rect.left,
+            y: rect.top,
+            height: rect.height,
+            selectedText: window.getSelection().toString()
+        };
+    }
+
+    // Helper function to insert the styled outline
+    _insertStyledOutline(pageElement, outline) {
+        try {
+            console.log('Inserting outline into page:', pageElement);
+            // Format the outline
+            const formattedOutline = this.formatOutline(outline);
+            console.log('Formatted outline text:', formattedOutline.text);
+
+            // Create the container div for the outline
+            const outlineContainer = document.createElement('div');
+            outlineContainer.className = 'cognito-inserted-outline';
+            Object.assign(outlineContainer.style, {
+                border: '1px solid #e0e0e0',
+                padding: '10px 15px',
+                margin: '10px 0',
+                backgroundColor: '#f9f9f9',
+                borderRadius: '4px',
+                fontFamily: 'Arial, sans-serif', // Ensure consistent font
+                fontSize: '11pt' // Match typical Google Docs font size
+            });
+
+            // Split the text into paragraphs and create elements
+            const paragraphs = formattedOutline.text.split('\n');
+            paragraphs.forEach(paragraphText => {
+                if (paragraphText.trim()) {
+                    const paragraphElement = document.createElement('div');
+                    paragraphElement.textContent = paragraphText;
+                    paragraphElement.style.marginBottom = '5px';
+                    paragraphElement.style.lineHeight = '1.4'; // Improve readability
+                    outlineContainer.appendChild(paragraphElement);
+                }
+            });
+
+            // Insert the container at the top of the page
+            pageElement.insertBefore(outlineContainer, pageElement.firstChild);
+
+            // Notify success
+            console.log('Outline application completed successfully.');
+            if (this.sidebarFrame?.contentWindow) {
+                this.sidebarFrame.contentWindow.postMessage({
+                    action: 'outlineApplied',
+                    success: true
+                }, '*');
+            }
+        } catch (error) {
+             console.error('Error during outline insertion:', error);
+             console.error('Error stack:', error.stack);
+             if (this.sidebarFrame?.contentWindow) {
+                 this.sidebarFrame.contentWindow.postMessage({
+                     action: 'outlineApplied',
+                     success: false,
+                     error: `Error during insertion: ${error.message}`
+                 }, '*');
+             }
+        }
+    }
+
+    async applyOutlineToDocument(outline) {
+        console.log('Starting applyOutlineToDocument');
+        console.log('Outline data:', outline);
+
+        try {
+            // Find the editor directly
+            const editor = document.querySelector('.kix-appview-editor');
+            if (!editor) {
+                // If editor isn't found immediately, we might need to wait for it too,
+                // but for now, we'll assume it should be present or throw.
+                throw new Error('Google Docs editor (.kix-appview-editor) not found.');
+            }
+            console.log('Found editor:', editor);
+
+            // Check if the page element already exists
+            const page = editor.querySelector('.kix-page');
+            if (page) {
+                console.log('.kix-page found immediately.');
+                this._insertStyledOutline(page, outline);
+            } else {
+                console.log('.kix-page not found immediately. Setting up MutationObserver...');
+                // If page doesn't exist, wait for it with a MutationObserver
+                const observer = new MutationObserver((mutations, obs) => {
+                    for (const mutation of mutations) {
+                        if (mutation.addedNodes.length > 0) {
+                            for (const node of mutation.addedNodes) {
+                                // Check if the added node is the page or contains the page
+                                if (node.nodeType === Node.ELEMENT_NODE) {
+                                    const foundPage = (node.matches && node.matches('.kix-page')) 
+                                                      ? node 
+                                                      : node.querySelector('.kix-page');
+                                    
+                                    if (foundPage) {
+                                        console.log('.kix-page found by MutationObserver.');
+                                        obs.disconnect(); // Stop observing once found
+                                        this._insertStyledOutline(foundPage, outline); 
+                                        return; // Exit once handled
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Start observing the editor for child additions
+                observer.observe(document.body, { 
+                    childList: true, 
+                    subtree: true 
+                });
+                
+                console.log('MutationObserver is waiting for .kix-page...');
+            }
+
+        } catch (error) {
+            // Catch errors finding the editor or setting up the observer
+            console.error('Error applying outline:', error);
+            console.error('Error stack:', error.stack);
+            if (this.sidebarFrame?.contentWindow) {
+                this.sidebarFrame.contentWindow.postMessage({
+                    action: 'outlineApplied',
+                    success: false,
+                    error: error.message
+                }, '*');
+            }
+        }
+    }
+
+    formatOutline(outline) {
+        console.log('Starting outline formatting with outline:', outline);
+        
+        // Validate outline structure
+        if (!outline || typeof outline !== 'object') {
+            console.error('Invalid outline object:', outline);
+            throw new Error('Invalid outline object provided');
+        }
+
+        let text = '';
+
+        // Process each section
+        outline.sections.forEach((section, sectionIndex) => {
+            // Section title with proper formatting
+            text += `${section.title}\n\n`;
+
+            // Key points with bullet points and proper formatting
+            if (Array.isArray(section.key_points) && section.key_points.length > 0) {
+                section.key_points.forEach(point => {
+                    if (point && typeof point === 'string') {
+                        text += `• ${point.trim()}\n`;
+                    }
+                });
+            }
+
+            // Add extra newline between sections
+            text += '\n';
+        });
+
+        // Ensure there's always some content
+        if (!text.trim()) {
+            text = 'Empty Outline\n\n• No content provided\n';
+        }
+
+        console.log('Formatted outline text:', text);
+
+        return {
+            text: text,
+            html: text
+        };
+    }
+
+    // Helper method to simulate typing
+    async simulateTyping(element, text) {
+        for (let char of text) {
+            const event = new InputEvent('textInput', {
+                data: char,
+                bubbles: true,
+                cancelable: true
+            });
+            element.dispatchEvent(event);
+            await new Promise(resolve => setTimeout(resolve, 10)); // Small delay between characters
+        }
+    }
+
+    notifySidebarOfChanges(message) {
+        console.log('Notifying sidebar of changes:', message);
+        if (this.sidebarFrame?.contentWindow) {
+            this.sidebarFrame.contentWindow.postMessage(message, '*');
+        } else {
+            console.error('Sidebar frame or contentWindow not available for notification');
+        }
+    }
+
+    removeSidebar() {
+        if (this.sidebarFrame) {
+            this.sidebarFrame.remove();
+            this.sidebarFrame = null;
+        }
+
+        // Restore original Google Docs UI
+        const docsContainer = document.querySelector('.docs-editor-container').parentElement;
+        if (docsContainer) {
+            Object.assign(docsContainer.style, {
+                marginRight: '0',
+                width: '100%'
+            });
+        }
+
+        const topBar = document.getElementById('docs-chrome');
+        if (topBar) {
+            Object.assign(topBar.style, {
+                marginRight: '0',
+                width: '100%'
+            });
+        }
+
+        // Stop observing
+        if (this.observer) {
+            this.observer.disconnect();
+        }
+    }
+}
+
+// Initialize the integration
+const integration = new GoogleDocsIntegration();
+
+// Export for testing
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = GoogleDocsIntegration;
 } 

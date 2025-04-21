@@ -1,0 +1,1 @@
+chrome.runtime.onInstalled.addListener((()=>{console.log("[Cognito] Extension installed.")})),chrome.runtime.onMessage.addListener(((e,o,n)=>{console.log("[Cognito] Message received in background:",e),n({success:!1,error:"No API support in background."})}));

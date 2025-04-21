@@ -1,6 +1,10 @@
 // content.js
 let sidebarFrame = null;
 let sidebarVisible = false;
+let shadowRoot = null;
+let docsObserver = null;
+let genericObserver = null;
+let layoutDebounceTimer = null;
 
 console.log('[Cognito] Content script initialized');
 
@@ -363,41 +367,45 @@ function adjustGenericLayout() {
 }
 
 function toggleSidebar(activeTab = null) {
-  if (!sidebarFrame) createSidebar();
+  console.log('toggleSidebar called with activeTab:', activeTab);
+  
+  if (!sidebarFrame) {
+    console.log('Creating new sidebar');
+    createSidebar();
+  }
 
   sidebarVisible = !sidebarVisible;
-  console.log('Setting sidebar visibility:', sidebarVisible);
-  
-  // Animate sidebar
+  console.log('Sidebar visible:', sidebarVisible);
+
   const sidebarContainer = shadowRoot.querySelector('.cognito-sidebar');
   if (sidebarContainer) {
-    sidebarContainer.style.transform = sidebarVisible ? 'none' : 'translateX(350px)';
+    sidebarContainer.style.transform = sidebarVisible ? 'translateX(0)' : 'translateX(350px)';
+    
+    // If an active tab is specified, send it to the sidebar
+    if (activeTab && sidebarFrame.contentWindow) {
+      sidebarFrame.contentWindow.postMessage({ 
+        action: 'switchTab', 
+        tab: activeTab 
+      }, '*');
+    }
   }
 
-  // Adjust Google Docs layout
-  adjustDocsLayout();
-
-  if (activeTab && sidebarVisible) {
-    console.log('Switching to tab:', activeTab);
-    setTimeout(() => {
-      if (sidebarFrame?.contentWindow) {
-        sidebarFrame.contentWindow.postMessage({ action: 'switchTab', tab: activeTab }, '*');
-      }
-    }, 300);
-  }
+  // Adjust the main content layout
+  adjustLayout();
 }
 
 // Listen for extension unload/reload
 window.addEventListener('beforeunload', cleanup);
 
-// Handle extension reload
+// Add message listener at the top level
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('Content script received message:', request);
+  
   if (request.action === 'toggleSidebar') {
-    console.log('Handling toggleSidebar action');
-    // Clean up existing instances before creating new ones
-    cleanup();
+    console.log('Toggling sidebar with tab:', request.tab);
     toggleSidebar(request.tab);
     sendResponse({ success: true });
+    return true;
   } else if (request.action === 'fetchDocText') {
     const text = getVisibleGoogleDocsText();
     sendResponse({ success: true, text });
@@ -563,7 +571,7 @@ class GoogleDocsIntegration {
     injectSidebar() {
         // Create sidebar iframe
         this.sidebarFrame = document.createElement('iframe');
-        this.sidebarFrame.src = chrome.runtime.getURL('frontend/sidebar.html');
+        this.sidebarFrame.src = chrome.runtime.getURL('sidebar.html');
         this.sidebarFrame.className = `${CLASS_PREFIX}-sidebar`;
         
         // Apply sidebar styles
@@ -997,5 +1005,13 @@ function startCanvasModePolling() {
     // Save lastText if needed for fallback
     lastText = text;
   }, 2000);
+}
+
+function adjustLayout() {
+  if (document.querySelector('.kix-appview-editor')) {
+    adjustDocsLayout();
+  } else {
+    adjustGenericLayout();
+  }
 }
 

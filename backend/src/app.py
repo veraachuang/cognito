@@ -20,6 +20,8 @@ CORS(app,
          r"/api/*": {
              "origins": [
                  "chrome-extension://abahnimgbnbihioopdehkbkpabaooepe",
+                 "chrome-extension://nhogikkdeeohkdmohgfgfcpijfbfeikm",
+                 "chrome-extension://*",  # Allow any Chrome extension during development
                  "http://localhost:5000",
                  "http://127.0.0.1:5000"
              ],
@@ -36,7 +38,12 @@ CORS(app,
 @app.after_request
 def after_request(response):
     if request.method == "OPTIONS":
-        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
+        origin = request.headers.get('Origin', '*')
+        # Allow if it's a Chrome extension or localhost
+        if origin.startswith('chrome-extension://') or origin in ['http://localhost:5000', 'http://127.0.0.1:5000']:
+            response.headers.add('Access-Control-Allow-Origin', origin)
+        else:
+            response.headers.add('Access-Control-Allow-Origin', '*')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept')
         response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
     return response
@@ -184,7 +191,13 @@ def create_outline():
 @app.route('/api/generate-outline', methods=['OPTIONS'])
 def handle_preflight():
     response = jsonify({})
-    response.headers.add('Access-Control-Allow-Origin', 'chrome-extension://abahnimgbnbihioopdehkbkpabaooepe')
+    # Get the origin from the request
+    origin = request.headers.get('Origin', '')
+    # Allow if it's a Chrome extension or localhost
+    if origin.startswith('chrome-extension://') or origin in ['http://localhost:5000', 'http://127.0.0.1:5000']:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    else:
+        response.headers.add('Access-Control-Allow-Origin', 'chrome-extension://abahnimgbnbihioopdehkbkpabaooepe')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept')
     response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
     return response

@@ -1,0 +1,130 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary-text: #ca0013;
+  --background: #eeebe3;
+  --secondary-text: #333333;
+  --border-color: #d1c7b7;
+  --hover-bg: #e0dcd2;
+  --button-bg: #ca0013;
+  --button-hover: #a0000f;
+  --button-text: #ffffff;
+}
+
+body {
+  width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  padding: 16px;
+  background-color: var(--background);
+  color: var(--secondary-text);
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+h1 {
+  font-size: 18px;
+  color: var(--primary-text);
+  margin-bottom: 8px;
+}
+
+h2 {
+  font-size: 14px;
+  color: var(--secondary-text);
+  margin-bottom: 12px;
+}
+
+.status-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-label {
+  font-size: 12px;
+  color: var(--secondary-text);
+}
+
+#connection-status {
+  font-size: 12px;
+  color: #ea4335;
+}
+
+#connection-status.connected {
+  color: #34a853;
+}
+
+.divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 8px 0;
+}
+
+.primary-button {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.primary-button:hover {
+  background-color: var(--button-hover);
+  transform: translateY(-1px);
+}
+
+.secondary-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background-color: transparent;
+  color: var(--primary-text);
+  border: 1px solid var(--primary-text);
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+}
+
+.secondary-button:hover {
+  background-color: var(--hover-bg);
+  transform: translateY(-1px);
+}
+
+.icon {
+  font-size: 16px;
+}
+
+.info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+} 

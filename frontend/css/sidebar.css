@@ -74,6 +74,40 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 16px;
+}
+
+/* File icon styles */
+.file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  color: var(--secondary-text);
+}
+
+.file-icon i {
+  font-size: 16px;
+}
+
+/* Upload icon styles */
+.upload-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: var(--primary-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-icon i {
+  opacity: 0.8;
+  transition: all 0.2s ease;
+}
+
+.upload-box:hover .upload-icon i {
+  opacity: 1;
+  transform: translateY(-2px);
 }
 
 .tabs {
@@ -129,22 +163,6 @@ body {
 .upload-box.drag-over {
   border-color: var(--primary-text);
   background-color: var(--hover-bg);
-}
-
-.upload-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-  color: var(--primary-text);
-}
-
-.upload-icon i {
-  opacity: 0.8;
-  transition: all 0.2s ease;
-}
-
-.upload-box:hover .upload-icon i {
-  opacity: 1;
-  transform: translateY(-2px);
 }
 
 .file-list {

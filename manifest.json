@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cognito",
   "version": "1.0",
-  "description": "AI-powered writing assistant for Google Docs",
+  "description": "Cursor for Docs",
   "permissions": [
     "storage",
     "activeTab",
@@ -15,29 +15,29 @@
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src *://localhost/* http://127.0.0.1:*/"
   },
   "action": {
-    "default_popup": "frontend/popup.html",
+    "default_popup": "frontend/html/popup.html",
     "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
+      "16": "frontend/assets/icon16.png",
+      "48": "frontend/assets/icon48.png",
+      "128": "frontend/assets/icon128.png"
     }
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["frontend/content.js"],
-      "css": ["frontend/styles.css"]
+      "js": ["frontend/js/content.js"],
+      "css": ["frontend/css/styles.css"]
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["frontend/sidebar.html", "frontend/sidebar.js", "frontend/styles.css"],
+      "resources": ["frontend/html/sidebar.html", "frontend/js/sidebar.js", "frontend/css/sidebar.css"],
       "matches": ["<all_urls>"]
     }
   ],
   "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "16": "frontend/assets/icon16.png",
+    "48": "frontend/assets/icon48.png",
+    "128": "frontend/assets/icon128.png"
   }
 } 

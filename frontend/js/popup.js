@@ -7,24 +7,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Helper function to send messages to content script
   async function sendMessage(message) {
+    console.log('Sending message:', message);
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return;
+    if (!tab) {
+      console.error('No active tab found');
+      return;
+    }
 
     try {
-      await chrome.tabs.sendMessage(tab.id, message);
+      const response = await chrome.tabs.sendMessage(tab.id, message);
+      console.log('Message response:', response);
     } catch (error) {
+      console.error('Error sending message:', error);
       // If content script isn't injected, inject it and try again
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['content.js']
-      });
-      await chrome.tabs.sendMessage(tab.id, message);
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js']
+        });
+        const response = await chrome.tabs.sendMessage(tab.id, message);
+        console.log('Message response after injection:', response);
+      } catch (injectionError) {
+        console.error('Error injecting content script:', injectionError);
+      }
     }
   }
 
   // Check if we're on Google Docs and update status
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const isGoogleDocs = tabs[0]?.url.startsWith('https://docs.google.com/document');
+    const isGoogleDocs = tabs[0]?.url?.startsWith('https://docs.google.com/document');
     connectionStatus.textContent = isGoogleDocs ? 'Connected' : 'Not connected';
     connectionStatus.classList.toggle('connected', isGoogleDocs);
   });
@@ -36,17 +47,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Toggle Sidebar button
-  toggleSidebarBtn.addEventListener('click', () => {
-    sendMessage({ action: 'toggleSidebar' });
+  toggleSidebarBtn.addEventListener('click', async () => {
+    await sendMessage({ action: 'toggleSidebar' });
   });
 
   // Quick Actions buttons
-  uploadDocsBtn.addEventListener('click', () => {
-    sendMessage({ action: 'toggleSidebar', tab: 'upload' });
+  uploadDocsBtn.addEventListener('click', async () => {
+    await sendMessage({ action: 'toggleSidebar', tab: 'upload' });
   });
 
-  createOutlineBtn.addEventListener('click', () => {
-    sendMessage({ action: 'toggleSidebar', tab: 'braindump' });
+  createOutlineBtn.addEventListener('click', async () => {
+    await sendMessage({ action: 'toggleSidebar', tab: 'braindump' });
   });
 
   // Listen for messages from the content script

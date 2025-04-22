@@ -6,13 +6,23 @@
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "identity"
   ],
   "host_permissions": [
-    "*://localhost/*"
+    "*://localhost/*",
+    "https://docs.google.com/*",
+    "https://www.googleapis.com/*"
   ],
+  "oauth2": {
+    "client_id": "${GOOGLE_CLIENT_ID}",
+    "scopes": [
+      "https://www.googleapis.com/auth/documents.readonly",
+      "https://www.googleapis.com/auth/drive.readonly"
+    ]
+  },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src *://localhost/* http://127.0.0.1:*/"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src *://localhost/* http://127.0.0.1:*/ https://www.googleapis.com/"
   },
   "action": {
     "default_popup": "frontend/html/popup.html",

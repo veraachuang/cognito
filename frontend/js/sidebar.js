@@ -333,57 +333,76 @@ class SidebarApp {
   
   // Parse text into components for analysis
   parseText(text) {
-    const trimmed = text.trim();
-    const words = trimmed.split(/\s+/).filter(Boolean);
-    const sentences = trimmed.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    const syllables = this.countSyllables(trimmed);
+    if (!text) return { sentences: [], paragraphs: [] };
     
-    return { 
-      text: trimmed,
-      words,
-      sentences,
-      syllables
+    // Split into paragraphs (handle both \n and \r\n)
+    const paragraphs = text.split(/\r?\n/).filter(p => p.trim().length > 0);
+    
+    // Better sentence detection using regex
+    const sentenceRegex = /[^.!?]+[.!?]+|\s+[A-Z][^.!?]*$/g;
+    let sentences = [];
+    
+    paragraphs.forEach(para => {
+      const paraMatches = para.match(sentenceRegex) || [];
+      sentences = sentences.concat(paraMatches.map(s => s.trim()).filter(s => s.length > 0));
+    });
+    
+    return {
+      sentences: sentences,
+      paragraphs: paragraphs,
+      wordCount: text.split(/\s+/).filter(w => w.trim().length > 0).length,
+      characterCount: text.replace(/\s+/g, '').length
     };
   }
   
   // Calculate various text metrics
   calculateTextMetrics(parsed) {
-    const { words, sentences, syllables } = parsed;
+    const { sentences, paragraphs, wordCount, characterCount } = parsed;
     
     // Basic metrics
-    const wordCount = words.length;
-    const readingTime = Math.ceil(wordCount / 200);
+    const readingTime = Math.ceil(wordCount / 200); // Average reading speed
     
-    // Grade level metrics
-    const wordsPerSentence = wordCount / Math.max(1, sentences.length);
-    const syllablesPerWord = syllables / Math.max(1, wordCount);
-    const gradeLevel = Math.round(0.39 * wordsPerSentence + 11.8 * syllablesPerWord - 15.59);
+    // Calculate average sentence length
+    const avgSentenceLength = sentences.length ? 
+      sentences.reduce((sum, sentence) => sum + sentence.split(/\s+/).filter(w => w.trim().length > 0).length, 0) / sentences.length : 0;
     
-    // Writing style metrics
-    const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / Math.max(1, wordCount);
-    const avgSentenceLength = wordCount / Math.max(1, sentences.length);
-    const writingStyle = this.determineWritingStyle(avgWordLength, avgSentenceLength);
+    // Calculate average paragraph length
+    const avgParagraphLength = paragraphs.length ?
+      paragraphs.reduce((sum, para) => sum + para.split(/\s+/).filter(w => w.trim().length > 0).length, 0) / paragraphs.length : 0;
     
-    // Advanced metrics
-    const longWords = words.filter(w => w.length > 7);
-    const vocabRatio = longWords.length / Math.max(1, wordCount);
-    const vocabLevel = vocabRatio > 0.2 ? 'Advanced' : vocabRatio > 0.1 ? 'Moderate' : 'Basic';
-    const sentenceStructure = avgSentenceLength > 20 ? 'Complex' : avgSentenceLength > 12 ? 'Varied' : 'Simple';
-    const clarityScore = Math.max(50, Math.min(100, 120 - avgSentenceLength * 2));
+    // Calculate average word length
+    const words = parsed.sentences.join(' ').split(/\s+/).filter(w => w.trim().length > 0);
+    const avgWordLength = words.length ?
+      words.reduce((sum, word) => sum + word.replace(/[^a-zA-Z]/g, '').length, 0) / words.length : 0;
     
-    const vividWords = ['exciting', 'surprising', 'dramatic', 'incredible', 'unexpected', 'strange', 'intense'];
-    const engagementCount = words.filter(w => vividWords.includes(w.toLowerCase())).length;
-    const engagementScore = Math.min(100, 70 + engagementCount * 3);
+    // Estimate Flesch-Kincaid grade level
+    const fleschKincaid = this.calculateFleschKincaid(sentences, wordCount);
+    
+    // Determine writing style based on metrics
+    const writingStyle = this.determineWritingStyle(avgSentenceLength, avgWordLength);
+    
+    // Calculate vocabulary metrics
+    const vocabLevel = this.calculateVocabularyLevel(words);
+    
+    // Calculate sentence structure score
+    const sentenceStructure = this.calculateSentenceStructure(sentences);
+    
+    // Calculate clarity score
+    const clarityScore = this.calculateClarityScore(avgSentenceLength, avgWordLength, fleschKincaid);
+    
+    // Calculate engagement score
+    const engagementScore = this.calculateEngagementScore(sentences, paragraphs, words);
     
     return {
       wordCount,
-      readingTime,
-      gradeLevel,
+      characterCount,
+      readingTime: `${readingTime} min`,
+      gradeLevel: fleschKincaid.toFixed(1),
       writingStyle,
-      vocabLevel,
-      sentenceStructure,
-      clarityScore: Math.round(clarityScore),
-      engagementScore
+      vocabularyLevel: vocabLevel.toFixed(1),
+      sentenceStructure: sentenceStructure.toFixed(1),
+      clarityScore: clarityScore.toFixed(1),
+      engagementScore: engagementScore.toFixed(1)
     };
   }
   
@@ -403,15 +422,15 @@ class SidebarApp {
     
     // Update basic metrics
     if (wordCount) wordCount.textContent = analysis.wordCount;
-    if (readingTime) readingTime.textContent = `${analysis.readingTime} min`;
+    if (readingTime) readingTime.textContent = analysis.readingTime;
     if (gradeLevel) gradeLevel.textContent = analysis.gradeLevel;
     if (writingStyle) writingStyle.textContent = analysis.writingStyle;
     
     // Update advanced metrics
-    if (vocabularyLevel) vocabularyLevel.textContent = analysis.vocabLevel;
+    if (vocabularyLevel) vocabularyLevel.textContent = analysis.vocabularyLevel;
     if (sentenceStructure) sentenceStructure.textContent = analysis.sentenceStructure;
-    if (clarityScore) clarityScore.textContent = `${analysis.clarityScore}%`;
-    if (engagementScore) engagementScore.textContent = `${analysis.engagementScore}%`;
+    if (clarityScore) clarityScore.textContent = analysis.clarityScore;
+    if (engagementScore) engagementScore.textContent = analysis.engagementScore;
     
     // Update recommendations
     if (recommendationsContainer) {
@@ -443,15 +462,45 @@ class SidebarApp {
   }
   
   // Determine writing style based on word and sentence length
-  determineWritingStyle(avgWordLength, avgSentenceLength) {
-    if (avgWordLength > 5 && avgSentenceLength > 20) return 'Academic';
-    else if (avgWordLength < 4 && avgSentenceLength < 15) return 'Conversational';
-    else return 'Balanced';
+  determineWritingStyle(avgSentenceLength, avgWordLength) {
+    if (avgSentenceLength < 10) {
+      return avgWordLength < 4.5 ? 'Concise' : 'Technical';
+    } else if (avgSentenceLength < 18) {
+      return avgWordLength < 4.5 ? 'Conversational' : 'Balanced';
+    } else {
+      return avgWordLength < 4.5 ? 'Narrative' : 'Academic';
+    }
   }
   
   // Update analysis tab with new text
   updateAnalysisTab(text) {
-    this.analyzeText(text);
+    if (!text || text.trim() === '') {
+      console.warn('[Cognito] Empty text received, skipping analysis');
+      return;
+    }
+    
+    try {
+      console.log('[Cognito] Analyzing text:', text.slice(0, 100) + '...');
+      
+      // Parse the text into sentences and paragraphs
+      const parsed = this.parseText(text);
+      
+      // Calculate metrics based on the parsed text
+      const analysis = this.calculateTextMetrics(parsed);
+      
+      // Update the UI with the analysis results
+      this.updateAnalysisDisplay(analysis);
+      
+      // Check if writer might be stuck and provide suggestions
+      const isStuck = this.isWriterStuck(text, parsed);
+      if (isStuck) {
+        this.showWritingPrompts();
+      }
+    } catch (error) {
+      console.error('[Cognito] Error analyzing text:', error);
+      // Gracefully handle analysis errors by showing basic metrics
+      this.showAnalysisError();
+    }
   }
   
   // Check if writer appears to be stuck
@@ -499,6 +548,164 @@ class SidebarApp {
     });
   }
   
+  // Show analysis error gracefully
+  showAnalysisError() {
+    const elements = [
+      'writing-style', 'vocabulary-level', 'sentence-structure', 
+      'clarity-score', 'engagement-score'
+    ];
+    
+    elements.forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = 'Analysis unavailable';
+      }
+    });
+    
+    const recommendationsContainer = document.getElementById('recommendations-container');
+    if (recommendationsContainer) {
+      recommendationsContainer.innerHTML = '<p>Unable to analyze the document. Please try again or ensure there is enough text in the document for meaningful analysis.</p>';
+    }
+  }
+  
+  // Calculate Flesch-Kincaid grade level
+  calculateFleschKincaid(sentences, wordCount) {
+    if (!sentences.length || !wordCount) return 0;
+    
+    const sentenceCount = sentences.length;
+    const syllableCount = this.estimateSyllableCount(sentences.join(' '));
+    
+    // Flesch-Kincaid Grade Level formula
+    return 0.39 * (wordCount / sentenceCount) + 11.8 * (syllableCount / wordCount) - 15.59;
+  }
+
+  // Estimate syllable count - improved algorithm
+  estimateSyllableCount(text) {
+    if (!text) return 0;
+    
+    // Remove non-alphabetic characters and split into words
+    const words = text.replace(/[^a-zA-Z\s]/g, '').toLowerCase().split(/\s+/);
+    
+    let syllableCount = 0;
+    const vowels = ['a', 'e', 'i', 'o', 'u', 'y'];
+    
+    words.forEach(word => {
+      // Count vowel groups in the word
+      let count = 0;
+      let prevIsVowel = false;
+      
+      for (let i = 0; i < word.length; i++) {
+        const isVowel = vowels.includes(word[i]);
+        if (isVowel && !prevIsVowel) {
+          count++;
+        }
+        prevIsVowel = isVowel;
+      }
+      
+      // Apply syllable counting rules
+      if (word.length > 3) {
+        // Handle silent e at the end
+        if (word.endsWith('e') && !word.endsWith('le')) {
+          count--;
+        }
+        
+        // Handle words ending with 'y'
+        if (word.endsWith('y') && !vowels.includes(word[word.length - 2])) {
+          count++;
+        }
+        
+        // Handle certain suffixes
+        if (word.endsWith('es') || word.endsWith('ed')) {
+          count--;
+        }
+      }
+      
+      // Ensure at least one syllable per word
+      syllableCount += Math.max(1, count);
+    });
+    
+    return syllableCount;
+  }
+
+  // Calculate vocabulary level (1-10 scale)
+  calculateVocabularyLevel(words) {
+    if (!words.length) return 0;
+    
+    // Count unique words
+    const uniqueWords = new Set(words.map(w => w.toLowerCase()));
+    const uniqueRatio = uniqueWords.size / words.length;
+    
+    // Calculate average word length
+    const avgWordLength = words.reduce((sum, word) => sum + word.length, 0) / words.length;
+    
+    // Composite score based on uniqueness and length
+    return (uniqueRatio * 5) + (avgWordLength / 10 * 5);
+  }
+
+  // Calculate sentence structure score (1-10 scale)
+  calculateSentenceStructure(sentences) {
+    if (!sentences.length) return 0;
+    
+    // Calculate sentence length diversity
+    const sentenceLengths = sentences.map(s => s.split(/\s+/).length);
+    const avgLength = sentenceLengths.reduce((sum, len) => sum + len, 0) / sentenceLengths.length;
+    
+    // Calculate standard deviation of sentence lengths
+    const variance = sentenceLengths.reduce((sum, len) => sum + Math.pow(len - avgLength, 2), 0) / sentenceLengths.length;
+    const stdDev = Math.sqrt(variance);
+    
+    // Check for sentence beginnings diversity
+    const beginnings = sentences.map(s => s.trim().split(/\s+/)[0]?.toLowerCase()).filter(Boolean);
+    const uniqueBeginnings = new Set(beginnings);
+    const beginningsDiversity = uniqueBeginnings.size / Math.max(1, beginnings.length);
+    
+    // Composite score
+    return (stdDev / 5 * 5) + (beginningsDiversity * 5);
+  }
+
+  // Calculate clarity score (1-10 scale)
+  calculateClarityScore(avgSentenceLength, avgWordLength, gradeLevel) {
+    // Ideal ranges
+    const idealSentenceLength = 15; // Target average sentence length
+    const idealWordLength = 4.5;    // Target average word length
+    const idealGradeLevel = 9.0;    // Target grade level (accessible but not simplistic)
+    
+    // Calculate deviations from ideal
+    const sentenceLengthFactor = 1 - Math.min(1, Math.abs(avgSentenceLength - idealSentenceLength) / 10);
+    const wordLengthFactor = 1 - Math.min(1, Math.abs(avgWordLength - idealWordLength) / 2);
+    const gradeLevelFactor = 1 - Math.min(1, Math.abs(gradeLevel - idealGradeLevel) / 5);
+    
+    // Weighted composite score
+    return (sentenceLengthFactor * 0.4 + wordLengthFactor * 0.3 + gradeLevelFactor * 0.3) * 10;
+  }
+
+  // Calculate engagement score (1-10 scale)
+  calculateEngagementScore(sentences, paragraphs, words) {
+    if (!sentences.length || !paragraphs.length || !words.length) return 0;
+    
+    // Check for question marks and exclamation points (engagement)
+    const engagingPunctuation = sentences.filter(s => s.includes('?') || s.includes('!')).length / sentences.length;
+    
+    // Check paragraph length diversity
+    const paragraphLengths = paragraphs.map(p => p.split(/\s+/).length);
+    const avgParaLength = paragraphLengths.reduce((sum, len) => sum + len, 0) / paragraphLengths.length;
+    const paraVariance = paragraphLengths.reduce((sum, len) => sum + Math.pow(len - avgParaLength, 2), 0) / paragraphLengths.length;
+    const paraStdDev = Math.sqrt(paraVariance);
+    const paragraphDiversity = Math.min(1, paraStdDev / 5);
+    
+    // Check for transition words that improve flow
+    const transitionWords = ['however', 'therefore', 'furthermore', 'moreover', 'meanwhile', 'nevertheless', 'although', 'despite', 'accordingly', 'consequently', 'thus', 'indeed', 'instead', 'meanwhile', 'nonetheless', 'similarly', 'whereas', 'conversely'];
+    const lowerText = words.join(' ').toLowerCase();
+    const transitionCount = transitionWords.reduce((count, word) => {
+      const regex = new RegExp(`\\b${word}\\b`, 'g');
+      return count + (lowerText.match(regex) || []).length;
+    }, 0);
+    const transitionRatio = Math.min(1, transitionCount / (words.length / 50));
+    
+    // Composite score
+    return (engagingPunctuation * 3 + paragraphDiversity * 3 + transitionRatio * 4) * 1.0;
+  }
+
   // Notify parent that sidebar is ready
   notifyParentReady() {
     window.parent.postMessage({ action: 'sidebarReady' }, '*');

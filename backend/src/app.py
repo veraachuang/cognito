@@ -19,8 +19,6 @@ CORS(app,
      resources={
          r"/api/*": {
              "origins": [
-                 "chrome-extension://abahnimgbnbihioopdehkbkpabaooepe",
-                 "chrome-extension://nhogikkdeeohkdmohgfgfcpijfbfeikm",
                  "chrome-extension://*",  # Allow any Chrome extension during development
                  "http://localhost:5000",
                  "http://127.0.0.1:5000"

@@ -3,17 +3,28 @@
   "name": "Cognito Assistant",
   "version": "1.0",
   "description": "Google Docs writing companion",
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxnA7KpKC1TecHKWI8dU3BWJnhiUX1mWOHu2vh5YXQfmctXFIILBUX5VIlbRDUM9rJlMkdgwuUQ+DwfOr12BjH5LLARvYRIYF9RMeRDxOYGRCnpVP5UaDZw/UrO1hUSqMxpfLBhJ8TrxUy1IGbqHzDWcRlmUERd5aG5eGpVCnOvjlFI6jPRytT9BFF+I7u2GpJRQQJgvyACtf1t47Yxe53YnDr37Z5vYaHsBTZQgxpve0zVBNJ4xrRL9DxWOJPgM74aGK3NdCkNkYPWj+JsehTlcr/nTUs+7JjWBwsY8uR/HNSj0IIfW7QUf1c3jmcj6WiR1L/t8oAj+AKMnKYC9eqwIDAQAB",
+  "key": "${EXTENSION_KEY}",
   "permissions": [
     "scripting",
     "activeTab",
-    "tabs"
+    "tabs",
+    "identity",
+    "storage"
   ],
   "host_permissions": [
-    "https://docs.google.com/*"
+    "https://docs.google.com/*",
+    "https://www.googleapis.com/*"
   ],
+  "oauth2": {
+    "client_id": "${OAUTH_CLIENT_ID}",
+    "scopes": [
+      "https://www.googleapis.com/auth/documents",
+      "https://www.googleapis.com/auth/drive"
+    ]
+  },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -41,6 +52,7 @@
         "sidebar.html", 
         "sidebar.js", 
         "sidebar.css",
+        "fontawesome.css",
         "assets/*"
       ],
       "matches": ["<all_urls>"]

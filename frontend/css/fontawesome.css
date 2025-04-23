@@ -1,0 +1,42 @@
+/* Font Awesome Basic Icons for Cognito Assistant */
+@font-face {
+  font-family: 'FontAwesome';
+  src: url('assets/fonts/fontawesome-webfont.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.fa, .fas {
+  display: inline-block;
+  font: normal normal normal 14px/1 FontAwesome;
+  font-size: inherit;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Icon Definitions */
+.fa-times:before { content: "\f00d"; }
+.fa-columns:before { content: "\f0db"; }
+.fa-upload:before, .fa-cloud-upload-alt:before { content: "\f093"; }
+.fa-list-ul:before { content: "\f0ca"; }
+.fa-file-alt:before { content: "\f15c"; }
+.fa-file:before { content: "\f15b"; }
+.fa-check:before { content: "\f00c"; }
+.fa-edit:before { content: "\f044"; }
+.fa-trash:before { content: "\f1f8"; }
+.fa-cog:before { content: "\f013"; }
+.fa-plus:before { content: "\f067"; }
+.fa-minus:before { content: "\f068"; }
+.fa-arrow-left:before { content: "\f060"; }
+.fa-arrow-right:before { content: "\f061"; }
+
+/* Animation Classes */
+.fa-spin {
+  animation: fa-spin 2s infinite linear;
+}
+
+@keyframes fa-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+} 

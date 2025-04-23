@@ -19,6 +19,13 @@ module.exports = {
         test: /\.css$/,
         use: ['style-loader', 'css-loader'],
       },
+      {
+        test: /\.(woff|woff2|eot|ttf|otf)$/i,
+        type: 'asset/resource',
+        generator: {
+          filename: 'assets/fonts/[name][ext]',
+        },
+      },
     ],
   },
   plugins: [
@@ -31,7 +38,8 @@ module.exports = {
             return content
               .toString()
               .replace('../css/sidebar.css', 'sidebar.css')
-              .replace('../js/sidebar.js', 'sidebar.js');
+              .replace('../js/sidebar.js', 'sidebar.js')
+              .replace('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css', 'fontawesome.css');
           },
         },
         {
@@ -41,12 +49,14 @@ module.exports = {
             return content
               .toString()
               .replace('../css/popup.css', 'popup.css')
-              .replace('../js/popup.js', 'popup.js');
+              .replace('../js/popup.js', 'popup.js')
+              .replace('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css', 'fontawesome.css');
           },
         },
         { from: 'css/sidebar.css', to: 'sidebar.css' },
         { from: 'css/popup.css', to: 'popup.css' },
         { from: 'css/styles.css', to: 'styles.css' },
+        { from: 'css/fontawesome.css', to: 'fontawesome.css' },
         { from: 'assets', to: 'assets' },
         { 
           from: 'src/manifest.json', 

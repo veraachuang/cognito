@@ -1,60 +1,67 @@
 // sidebar.js
-
+let DOC_ID = null;  
 console.log('[Cognito] Sidebar script loaded');
-
 window.parent.postMessage({ action: 'sidebarReady' }, '*');
 
-const closeBtn = document.getElementById('close-sidebar');
-const tabButtons = document.querySelectorAll('.tab-button');
-const tabPanels = document.querySelectorAll('.tab-panel');
-const braindumpInput = document.getElementById('braindump-input');
-
-function switchTab(tabId) {
-  tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
-  tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === tabId));
-
-  if (tabId === 'braindump') {
-    const text = braindumpInput.value;
-    analyzeText(text);
+window.addEventListener('message', evt => {
+  if (evt.data?.action === 'docId') {
+    DOC_ID = evt.data.value;
+    console.log('[Cognito] Received Doc ID →', DOC_ID);
   }
-}
-
-
-
-closeBtn.addEventListener('click', () => {
-  window.parent.postMessage({ action: 'closeSidebar' }, '*');
 });
 
-tabButtons.forEach(button => {
-  button.addEventListener('click', () => {
-    const tabId = button.dataset.tab;
-    switchTab(tabId);
-  });
-});
+document.addEventListener('DOMContentLoaded', () => {
+  const closeBtn = document.getElementById('close-sidebar');
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+  const braindumpInput = document.getElementById('braindump-input');
+  const spinner = document.getElementById("analyzing-spinner");
 
-window.addEventListener('message', (event) => {
-  const { action, data, features } = event.data;
+  function switchTab(tabId) {
+    tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
+    tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === tabId));
 
-  if (action === 'liveTextUpdate') {
-    // Only update the analysis tab with live Google Doc text
-    updateAnalysisTab(data);
-  
-    if (features) {
-      document.getElementById('word-count').textContent = features.wordCount;
-      document.getElementById('reading-time').textContent = features.readingTime;
+    if (tabId === 'braindump') {
+      analyzeText(braindumpInput.value);
     }
-  
-    localStorage.setItem('lastWritingUpdate', Date.now());
   }
-  
-  
-});
 
+  closeBtn.addEventListener('click', () => {
+    window.parent.postMessage({ action: 'closeSidebar' }, '*');
+  });
 
-braindumpInput.addEventListener('input', (e) => {
-  const text = e.target.value;
-  analyzeText(text);
-  localStorage.setItem('lastWritingUpdate', Date.now());
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => switchTab(button.dataset.tab));
+  });
+
+  braindumpInput.addEventListener('input', (e) => {
+    analyzeText(e.target.value);
+    localStorage.setItem('lastWritingUpdate', Date.now());
+  });
+
+  const analyzeDocBtn = document.getElementById("analyze-doc-button");
+  const statusEl = document.getElementById("analysis-status");
+  const recEl = document.getElementById("recommendations-container");
+  
+  if (analyzeDocBtn) {
+    analyzeDocBtn.addEventListener("click", async () => {
+      statusEl.textContent = "Fetching document text...";
+      recEl.innerHTML = '';
+      if (spinner) spinner.style.display = "block";
+
+      try {
+        const text = await fetchTextFromDocsAPI();
+        statusEl.textContent = "Analyzing with OpenAI...";
+        const analysis = await analyzeTextWithOpenAI(text);
+        statusEl.textContent = "Analysis complete.";
+      } catch (e) {
+        statusEl.textContent = "Failed to analyze.";
+        recEl.innerHTML = `<p class="error">Error: ${e}</p>`;
+      } finally {
+        if (spinner) spinner.style.display = "none";
+      }
+    });
+  }
 });
 
 function analyzeText(text) {
@@ -68,63 +75,49 @@ function analyzeText(text) {
   document.getElementById('grade-level').textContent = gradeLevel;
   document.getElementById('writing-style').textContent = writingStyle;
 
-  if (isWriterStuck(text)) generateWritingPrompts(text);
+  if (isWriterStuck(text)) generateWritingPrompts();
 }
 
 function calculateGradeLevel(text) {
   const words = text.trim().split(/\s+/);
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim());
   const syllables = countSyllables(text);
 
   const wordsPerSentence = words.length / Math.max(1, sentences.length);
   const syllablesPerWord = syllables / Math.max(1, words.length);
 
-  const gradeLevel = 0.39 * wordsPerSentence + 11.8 * syllablesPerWord - 15.59;
-  return Math.round(gradeLevel);
+  return Math.round(0.39 * wordsPerSentence + 11.8 * syllablesPerWord - 15.59);
 }
 
 function countSyllables(text) {
-  const words = text.trim().toLowerCase().split(/\s+/);
-  let count = 0;
-  words.forEach(word => {
+  return text.trim().toLowerCase().split(/\s+/).reduce((count, word) => {
     word = word.replace(/[^a-z]/g, '');
-    if (word.length <= 3) {
-      count += 1;
-      return;
-    }
-    count += word.replace(/[^aeiouy]+/g, ' ').trim().split(/\s+/).length;
-  });
-  return count;
+    if (word.length <= 3) return count + 1;
+    return count + word.replace(/[^aeiouy]+/g, ' ').trim().split(/\s+/).length;
+  }, 0);
 }
 
 function analyzeWritingStyle(text) {
   const words = text.trim().split(/\s+/);
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim());
   const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / words.length;
   const avgSentenceLength = words.length / Math.max(1, sentences.length);
 
   if (avgWordLength > 5 && avgSentenceLength > 20) return 'Academic';
-  else if (avgWordLength < 4 && avgSentenceLength < 15) return 'Conversational';
-  else return 'Balanced';
+  if (avgWordLength < 4 && avgSentenceLength < 15) return 'Conversational';
+  return 'Balanced';
 }
 
 function isWriterStuck(text) {
   const words = text.trim().split(/\s+/);
   const lastWords = words.slice(-10);
   const uniqueWords = new Set(lastWords);
-  if (uniqueWords.size < 5) return true;
-
   const lastUpdate = localStorage.getItem('lastWritingUpdate');
-  if (lastUpdate && Date.now() - lastUpdate > 30000) return true;
 
-  return false;
+  return uniqueWords.size < 5 || (lastUpdate && Date.now() - lastUpdate > 30000);
 }
 
-function generateWritingPrompts(text) {
-  const promptsContainer = document.getElementById('prompts-container');
-  promptsContainer.innerHTML = '';
-
+function generateWritingPrompts() {
   const prompts = [
     'What is the main point you want to convey?',
     'How does this connect to your previous ideas?',
@@ -133,46 +126,95 @@ function generateWritingPrompts(text) {
     'How does this relate to your overall topic?'
   ];
 
+  const promptsContainer = document.getElementById('prompts-container');
+  promptsContainer.innerHTML = '';
+
   prompts.forEach(prompt => {
-    const promptElement = document.createElement('div');
-    promptElement.className = 'prompt';
-    promptElement.textContent = prompt;
-    promptElement.onclick = () => {
-      braindumpInput.value += '\n\n' + prompt;
-      braindumpInput.focus();
+    const el = document.createElement('div');
+    el.className = 'prompt';
+    el.textContent = prompt;
+    el.onclick = () => {
+      const input = document.getElementById('braindump-input');
+      if (input) {
+        input.value += `\n\n${prompt}`;
+        input.focus();
+      }
     };
-    promptsContainer.appendChild(promptElement);
+    promptsContainer.appendChild(el);
+  });
+}
+function getDocId() {
+  // /document/d/<ID>/edit …
+  const m = window.location.pathname.match(/\/d\/([^/]+)/);
+  if (m && m[1]) return m[1];
+
+  // ?id=<ID> (very old URLs)
+  const legacy = new URLSearchParams(window.location.search).get('id');
+  if (legacy) return legacy;
+
+  return null;
+}
+async function fetchTextFromDocsAPI () {
+  if (!DOC_ID) throw new Error('No Google-Docs ID – the iframe never received it.');
+  return new Promise((res, rej) => {
+    chrome.runtime.sendMessage({ action:'getDocText', docId: DOC_ID }, (r) => {
+      if (chrome.runtime.lastError) return rej(chrome.runtime.lastError.message);
+      if (!r)                        return rej('No response from background.');
+      if (r.error)                   return rej(r.error);
+      if (!r.text)                   return rej('Background returned no text.');
+      res(r.text);
+    });
   });
 }
 
-function updateAnalysisTab(text) {
-  const words = text.trim().split(/\s+/).filter(Boolean);
-  const longWords = words.filter(w => w.length > 7);
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
 
-  const vocabRatio = longWords.length / Math.max(1, words.length);
-  const vocabLevel = vocabRatio > 0.2 ? 'Advanced' : vocabRatio > 0.1 ? 'Moderate' : 'Basic';
+async function analyzeTextWithOpenAI(text) {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: 'Return JSON with keys: vocabulary_level, sentence_structure, clarity_score, engagement_score, recommendations.' },
+        { role: 'user', content: `Analyze the following for grade level, clarity, vocabulary, engagement:\n\n${text}` }
+      ]
+    })
+  });
+  const answer = (await res.json()).choices?.[0]?.message?.content || '{}';
+  let data;
+  try {
+    data = JSON.parse(answer);
+  } catch (e) {
+    throw new Error(answer);
+  }
 
-  const avgSentenceLength = words.length / Math.max(1, sentences.length);
-  const sentenceStructure = avgSentenceLength > 20 ? 'Complex' :
-                            avgSentenceLength > 12 ? 'Varied' : 'Simple';
+  // Display metrics
+  document.getElementById('vocabulary-level').textContent   = data.vocabulary_level   || '-';
+  document.getElementById('sentence-structure').textContent = data.sentence_structure || '-';
 
-  const clarityScore = Math.max(50, Math.min(100, 120 - avgSentenceLength * 2));
+  // Convert clarity & engagement (0–1) to % if needed
+  const fmtScore = v => (typeof v === 'number' && v <= 1)
+    ? Math.round(v * 100) + '%' : v;
+  document.getElementById('clarity-score').textContent    = fmtScore(data.clarity_score);
+  document.getElementById('engagement-score').textContent = fmtScore(data.engagement_score);
 
-  const vividWords = ['exciting', 'surprising', 'dramatic', 'incredible', 'unexpected', 'strange', 'intense'];
-  const engagementCount = words.filter(w => vividWords.includes(w.toLowerCase())).length;
-  const engagementScore = Math.min(100, 70 + engagementCount * 3);
+  // Normalize recommendations to array
+  let recs = [];
+  if (Array.isArray(data.recommendations)) {
+    recs = data.recommendations;
+  } else if (typeof data.recommendations === 'string') {
+    recs = [data.recommendations];
+  }
 
-  document.getElementById('vocabulary-level').textContent = vocabLevel;
-  document.getElementById('sentence-structure').textContent = sentenceStructure;
-  document.getElementById('clarity-score').textContent = `${Math.round(clarityScore)}%`;
-  document.getElementById('engagement-score').textContent = `${engagementScore}%`;
-
-  document.getElementById('recommendations-container').innerHTML = `
-    <ul>
-      <li>Use more vivid and specific vocabulary.</li>
-      <li>Vary sentence structure for better rhythm.</li>
-      <li>Simplify long or complex sentences.</li>
-    </ul>
-  `;
+  // Safely render list (if empty, show placeholder)
+  if (recs.length) {
+    document.getElementById('recommendations-container').innerHTML =
+      `<ul>${recs.map(r => `<li>${r}</li>`).join('')}</ul>`;
+  } else {
+    document.getElementById('recommendations-container').innerHTML =
+      `<p class="suggested-length">No recommendations returned.</p>`;
+  }
 }

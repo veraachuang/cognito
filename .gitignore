@@ -1,3 +1,6 @@
 venv/
 .aider*
 .env
+pub.pem
+frontend.pem
+backend/.env

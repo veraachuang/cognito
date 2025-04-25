@@ -1,31 +1,46 @@
 {
   "manifest_version": 3,
-  "name": "Cognito Assistant",
+  "name": "Cognito",
   "version": "1.0",
-  "description": "Google Docs writing companion",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1UmpRbMRalMsrQcR6re/v2j+8BRkzp6tQFU10WpmRbDKGmkCajis95QlK7MqZW+0tgfTtQlGNE0hjVclNwQ7cnnk0yh6qA8+L9PmGMn6o89NucfwQF3C1KaiQDanMVCWX+WOqEYBB2okyXuFhK24Inqg73hoH6q4OgZ5l7/SWbNVbYVMDUPbn467LbJrFf30x0nuOKa5w85B6RsIVM8IwU5rayPunl5aBZseaDLVf/rs0tJ+RUO1Ac2+JnbwPLULmq6Yy2rSimADhqNr/oPvSRsAxMW5lagJnLiutEYyqlFyKQWlQ71ib9DX39sDUdQAnKvDz2cj52ncOsdlOAnlCwIDAQAB",
+  "description": "AI-powered writing assistant for Google Docs",
   "permissions": [
+    "identity",
+    "activeTab",
     "scripting",
-    "activeTab"
+    "storage"
   ],
-  "host_permissions": [
-    "https://docs.google.com/*"
-  ],
-  "background": {
-    "service_worker": "background.js"
+  "oauth2": {
+    "client_id": "462872130385-vav3smfvl9i8vphmbgpdq8ass8ie1uh8.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/documents.readonly"
+    ]
   },
-  "content_scripts": [
-    {
-      "matches": ["https://docs.google.com/document/*"],
-      "js": ["content.js"]
-    }
+  "host_permissions": [
+    "https://docs.google.com/*",
+    "http://localhost:5000/*",
+    "https://docs.googleapis.com/*",
+    "https://api.openai.com/*"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://api.openai.com https://docs.googleapis.com http://localhost:5000"
+  },
   "action": {
     "default_popup": "popup.html"
   },
   "web_accessible_resources": [
-    {
-      "resources": ["sidebar.html", "sidebar.js", "style.css"],
-      "matches": ["<all_urls>"]
-    }
-  ]
+  {
+    "resources": ["sidebar.html", "sidebar.js", "sidebar.css"],
+    "matches": ["<all_urls>"]
+  }
+],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+  {
+    "matches": ["https://docs.google.com/document/*"],
+    "js": ["content.js"]
+  }
+]
 }

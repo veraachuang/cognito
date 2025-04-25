@@ -1,3 +1,4 @@
+//popup.js
 document.addEventListener('DOMContentLoaded', () => {
   const connectionStatus = document.getElementById('connection-status');
   const connectButton = document.getElementById('connect-button');
@@ -5,15 +6,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const uploadDocsBtn = document.getElementById('upload-docs');
   const createOutlineBtn = document.getElementById('create-outline');
 
-  // Helper function to send messages to content script
+  // Send messages to content script
   async function sendMessage(message) {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return;
+    if (!tab?.id) return;
 
     try {
       await chrome.tabs.sendMessage(tab.id, message);
     } catch (error) {
-      // If content script isn't injected, inject it and try again
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         files: ['content.js']
@@ -22,35 +22,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Check if we're on Google Docs and update status
+  // Update status based on whether user is in a Google Doc
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const isGoogleDocs = tabs[0]?.url.startsWith('https://docs.google.com/document');
+    const isGoogleDocs = tabs[0]?.url?.startsWith('https://docs.google.com/document');
     connectionStatus.textContent = isGoogleDocs ? 'Connected' : 'Not connected';
     connectionStatus.classList.toggle('connected', isGoogleDocs);
   });
 
-  // Connect button
-  connectButton.addEventListener('click', () => {
-    sendMessage({ action: 'toggleSidebar', tab: 'upload' });
+  // Button behaviors
+  connectButton?.addEventListener('click', () => {
+    sendMessage({ action: 'toggleSidebar', tab: 'upload', fromPopup: true });
+    window.close();
   });
 
-  // Toggle Sidebar button
-  toggleSidebarBtn.addEventListener('click', () => {
+  toggleSidebarBtn?.addEventListener('click', () => {
     sendMessage({ action: 'toggleSidebar' });
   });
 
-  // Quick Actions buttons
-  uploadDocsBtn.addEventListener('click', () => {
+  uploadDocsBtn?.addEventListener('click', () => {
     sendMessage({ action: 'toggleSidebar', tab: 'upload' });
   });
 
-  createOutlineBtn.addEventListener('click', () => {
+  createOutlineBtn?.addEventListener('click', () => {
     sendMessage({ action: 'toggleSidebar', tab: 'braindump' });
   });
 
-  // Listen for messages from the content script
+  // Optional: Handle incoming messages if needed
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('Received message in popup:', request);
     if (request.type === 'connectionStatusChanged') {
       connectionStatus.textContent = request.connected ? 'Connected' : 'Not connected';
       connectionStatus.classList.toggle('connected', request.connected);
@@ -58,4 +56,4 @@ document.addEventListener('DOMContentLoaded', () => {
     sendResponse({ received: true });
     return true;
   });
-}); 
+});

@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Cognito Assistant",
+  "version": "1.0",
+  "description": "Google Docs writing companion",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxnA7KpKC1TecHKWI8dU3BWJnhiUX1mWOHu2vh5YXQfmctXFIILBUX5VIlbRDUM9rJlMkdgwuUQ+DwfOr12BjH5LLARvYRIYF9RMeRDxOYGRCnpVP5UaDZw/UrO1hUSqMxpfLBhJ8TrxUy1IGbqHzDWcRlmUERd5aG5eGpVCnOvjlFI6jPRytT9BFF+I7u2GpJRQQJgvyACtf1t47Yxe53YnDr37Z5vYaHsBTZQgxpve0zVBNJ4xrRL9DxWOJPgM74aGK3NdCkNkYPWj+JsehTlcr/nTUs+7JjWBwsY8uR/HNSj0IIfW7QUf1c3jmcj6WiR1L/t8oAj+AKMnKYC9eqwIDAQAB",
+  "permissions": [
+    "scripting",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://docs.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://docs.google.com/document/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "sidebar.html", 
+        "sidebar.js", 
+        "sidebar.css",
+        "assets/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

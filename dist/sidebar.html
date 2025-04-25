@@ -96,7 +96,14 @@
       <div id="analysis" class="tab-panel">
         <div class="analysis-section">
           <h2>Detailed Analysis</h2>
-          <div class="analysis-metrics detailed">
+      
+          <div id="analysis-status" class="suggested-length">
+            No analysis yet. Click the button above to analyze the current document.
+          </div>
+          <div id="analyzing-spinner" class="spinner" style="display: none;"></div>
+
+      
+          <div class="analysis-metrics detailed" style="margin-top: 16px;">
             <div class="metric">
               <div class="metric-label">Vocabulary Level</div>
               <div class="metric-value" id="vocabulary-level">-</div>
@@ -114,14 +121,16 @@
               <div class="metric-value" id="engagement-score">-</div>
             </div>
           </div>
+      
           <div class="writing-recommendations">
             <h3>Recommendations</h3>
             <div id="recommendations-container">
-              <!-- Recommendations will be dynamically added here -->
+              <p class="suggested-length">Nothing to show yet.</p>
             </div>
           </div>
         </div>
-      </div>
+        <button id="analyze-doc-button" class="primary-button">Analyze Document</button>
+      </div>      
     </div>
   </div>
   <script src="sidebar.js"></script>

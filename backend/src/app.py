@@ -14,18 +14,39 @@ load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
 
-# Configure CORS
-CORS(app, resources={
-    r"/api/*": {
-        "origins": [
-            "chrome-extension://jcdgbfdngmmmijhcemlhadoodoclfbjn",  # Your extension ID
-            "http://localhost:3000",  # For local development
-            "http://localhost:5000"
-        ],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
-    }
-})
+# Configure CORS with specific origin
+CORS(app,
+     resources={
+         r"/api/*": {
+             "origins": [
+                 "chrome-extension://abahnimgbnbihioopdehkbkpabaooepe",
+                 "chrome-extension://nhogikkdeeohkdmohgfgfcpijfbfeikm",
+                 "chrome-extension://*",  # Allow any Chrome extension during development
+                 "http://localhost:5000",
+                 "http://127.0.0.1:5000"
+             ],
+             "methods": ["GET", "POST", "OPTIONS"],
+             "allow_headers": ["Content-Type", "Authorization", "Accept", "Origin"],
+             "expose_headers": ["Content-Type"],
+             "supports_credentials": False,
+             "max_age": 600
+         }
+     }
+)
+
+# Add OPTIONS method handling for all API routes
+@app.after_request
+def after_request(response):
+    if request.method == "OPTIONS":
+        origin = request.headers.get('Origin', '*')
+        # Allow if it's a Chrome extension or localhost
+        if origin.startswith('chrome-extension://') or origin in ['http://localhost:5000', 'http://127.0.0.1:5000']:
+            response.headers.add('Access-Control-Allow-Origin', origin)
+        else:
+            response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    return response
 
 # Configure upload settings
 UPLOAD_FOLDER = tempfile.gettempdir()
@@ -167,6 +188,20 @@ def create_outline():
     except Exception as e:
         return jsonify({"error": f"Error generating outline: {str(e)}"}), 500
 
+@app.route('/api/generate-outline', methods=['OPTIONS'])
+def handle_preflight():
+    response = jsonify({})
+    # Get the origin from the request
+    origin = request.headers.get('Origin', '')
+    # Allow if it's a Chrome extension or localhost
+    if origin.startswith('chrome-extension://') or origin in ['http://localhost:5000', 'http://127.0.0.1:5000']:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    else:
+        response.headers.add('Access-Control-Allow-Origin', 'chrome-extension://abahnimgbnbihioopdehkbkpabaooepe')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept')
+    response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+    return response
+
 def extract_text_from_file(filepath):
     """Extract text from various file formats"""
     ext = filepath.rsplit('.', 1)[1].lower()
@@ -191,4 +226,4 @@ def extract_text_from_file(filepath):
         return '\n'.join([paragraph.text for paragraph in doc.paragraphs])
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
+    app.run(debug=True, host='127.0.0.1', port=5002) 

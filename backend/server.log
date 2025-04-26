@@ -1,0 +1,72 @@
+
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.2.5 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+Traceback (most recent call last):  File "/Users/verac/Documents/cognito/backend/simple_server.py", line 21, in <module>
+    from src.app import app
+  File "/Users/verac/Documents/cognito/backend/src/app.py", line 7, in <module>
+    from src.nlp_processing.preprocess import preprocess_text, analyze_writing_style, batch_process_texts
+  File "/Users/verac/Documents/cognito/backend/src/nlp_processing/preprocess.py", line 1, in <module>
+    import spacy
+  File "/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/spacy/__init__.py", line 6, in <module>
+    from .errors import setup_default_warnings
+  File "/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/spacy/errors.py", line 3, in <module>
+    from .compat import Literal
+  File "/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/spacy/compat.py", line 4, in <module>
+    from thinc.util import copy_array
+  File "/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/thinc/__init__.py", line 5, in <module>
+    from .config import registry
+  File "/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/thinc/config.py", line 5, in <module>
+    from .types import Decorator
+  File "/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/thinc/types.py", line 25, in <module>
+    from .compat import cupy, has_cupy
+  File "/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/thinc/compat.py", line 35, in <module>
+    import torch
+  File "/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/torch/__init__.py", line 1477, in <module>
+    from .functional import *  # noqa: F403
+  File "/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/torch/functional.py", line 9, in <module>
+    import torch.nn.functional as F
+  File "/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/torch/nn/__init__.py", line 1, in <module>
+    from .modules import *  # noqa: F403
+  File "/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/torch/nn/modules/__init__.py", line 35, in <module>
+    from .transformer import TransformerEncoder, TransformerDecoder, \
+  File "/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/torch/nn/modules/transformer.py", line 20, in <module>
+    device: torch.device = torch.device(torch._C._get_default_device()),  # torch.device('cpu'),
+/Users/verac/.pyenv/versions/3.10.16/lib/python3.10/site-packages/torch/nn/modules/transformer.py:20: UserWarning: Failed to initialize NumPy: _ARRAY_API not found (Triggered internally at /Users/runner/work/pytorch/pytorch/pytorch/torch/csrc/utils/tensor_numpy.cpp:84.)
+  device: torch.device = torch.device(torch._C._get_default_device()),  # torch.device('cpu'),
+Backend directory: /Users/verac/Documents/cognito/backend
+Starting backend server on 127.0.0.1:5002
+Dataset loaded successfully. Train size: 689793
+Validation size: 37919
+Author: female, Age: 17
+Text statistics: {'word_count': 217, 'sentence_count': 15, 'avg_word_length': 3.68, 'pos_distribution': {'INTJ': 3, 'PUNCT': 35, 'ADJ': 17, 'ADP': 24, 'PART': 11, 'VERB': 30, 'DET': 12, 'NOUN': 31, 'ADV': 22, 'CCONJ': 10, 'PRON': 29, 'AUX': 15, 'NUM': 4, 'PROPN': 4, 'SCONJ': 3, 'SPACE': 1, 'X': 2}}
+Writing style: {'avg_sentence_length': 15.57, 'verb_tenses': {'Pres': 9, 'Past': 13, 'None': 7}, 'punctuation_usage': {',': 16, '.': 12, '...': 3, '(': 1, ')': 1, '*': 2}}
+---
+Author: female, Age: 17
+Text statistics: {'word_count': 142, 'sentence_count': 14, 'avg_word_length': 3.64, 'pos_distribution': {'INTJ': 4, 'PUNCT': 33, 'ADV': 10, 'NOUN': 19, 'AUX': 13, 'ADJ': 11, 'PRON': 25, 'PART': 8, 'ADP': 10, 'DET': 10, 'VERB': 21, 'SCONJ': 2, 'CCONJ': 4, 'PROPN': 3, 'SPACE': 1, 'X': 2}}
+Writing style: {'avg_sentence_length': 11.0, 'verb_tenses': {'None': 9, 'Pres': 9, 'Past': 3}, 'punctuation_usage': {',': 11, '.': 12, '..': 1, '"': 3, '...': 2, '(': 1, ')': 1, '*': 2}}
+---
+Author: female, Age: 17
+Text statistics: {'word_count': 679, 'sentence_count': 65, 'avg_word_length': 3.86, 'pos_distribution': {'PROPN': 34, 'PUNCT': 160, 'ADV': 77, 'CCONJ': 31, 'ADJ': 41, 'NOUN': 104, 'PRON': 103, 'AUX': 46, 'SCONJ': 10, 'VERB': 95, 'INTJ': 25, 'ADP': 57, 'DET': 27, 'PART': 25, 'SPACE': 1, 'NUM': 5, 'X': 1}}
+Writing style: {'avg_sentence_length': 10.81, 'verb_tenses': {'Past': 37, 'None': 23, 'Pres': 34}, 'punctuation_usage': {',': 66, '...': 29, '!': 10, '.': 43, '"': 4, '(': 2, ')': 2, '..': 2, ':)': 1, '?': 1, '....': 1}}
+---
+Author: female, Age: 17
+Text statistics: {'word_count': 1, 'sentence_count': 1, 'avg_word_length': 3.0, 'pos_distribution': {'NOUN': 1, 'PUNCT': 1}}
+Writing style: {'avg_sentence_length': 1.0, 'verb_tenses': {'None': 1}, 'punctuation_usage': {'!': 1}}
+---
+Author: female, Age: 17
+Text statistics: {'word_count': 35, 'sentence_count': 3, 'avg_word_length': 3.54, 'pos_distribution': {'PUNCT': 13, 'INTJ': 1, 'ADV': 4, 'PRON': 6, 'AUX': 5, 'ADP': 4, 'NOUN': 4, 'CCONJ': 2, 'PART': 3, 'VERB': 2, 'ADJ': 1, 'SPACE': 1, 'X': 2}}
+Writing style: {'avg_sentence_length': 12.0, 'verb_tenses': {'None': 2}, 'punctuation_usage': {'...': 1, ',': 5, '.': 1, '"': 4, '?': 1}}
+---
+Dataset loaded successfully. Train size: 689793
+Validation size: 37919
+ * Serving Flask app 'src.app'
+ * Debug mode: on
+Address already in use
+Port 5002 is in use by another program. Either identify and stop that program, or start the server with a different port.

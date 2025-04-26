@@ -13,6 +13,7 @@
   "oauth2": {
     "client_id": "462872130385-vav3smfvl9i8vphmbgpdq8ass8ie1uh8.apps.googleusercontent.com",
     "scopes": [
+      "https://www.googleapis.com/auth/documents",
       "https://www.googleapis.com/auth/documents.readonly"
     ]
   },
@@ -20,10 +21,12 @@
     "https://docs.google.com/*",
     "http://localhost:5000/*",
     "https://docs.googleapis.com/*",
-    "https://api.openai.com/*"
+    "https://api.openai.com/*",
+    "https://accounts.google.com/*",
+    "https://www.googleapis.com/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://api.openai.com https://docs.googleapis.com http://localhost:5000"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://api.openai.com https://docs.googleapis.com https://www.googleapis.com https://accounts.google.com http://localhost:5000"
   },
   "action": {
     "default_popup": "dist/popup.html",

@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Cognito Assistant</title>
+  <title>Cognito</title>
   <link rel="stylesheet" href="sidebar.css">
+  <!-- Add Font Awesome for improved icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <div class="sidebar-container">
     <div class="header">
-      <h1>Cognito Assistant</h1>
-      <button id="close-sidebar" class="icon-button">✕</button>
+      <h1>Cognito</h1>
+      <button id="close-sidebar" class="icon-button"><i class="fas fa-times"></i></button>
     </div>
 
     <div class="tabs">
@@ -25,7 +27,7 @@
           <h2>Upload Reference Documents</h2>
           <p>Upload your previous writing samples to help AI understand your style.</p>
           <div class="upload-box" id="upload-dropzone">
-            <div class="upload-icon">📄</div>
+            <div class="upload-icon"><i class="fas fa-file-upload"></i></div>
             <p>Drag and drop files here or</p>
             <button class="secondary-button" id="upload-button">Choose Files</button>
             <input type="file" id="file-input" multiple accept=".doc,.docx,.pdf" style="display: none;">
@@ -86,8 +88,8 @@
             <p class="empty-state">Complete the brain dump to generate an outline</p>
           </div>
           <div class="outline-actions">
-            <button id="regenerate-outline" class="secondary-button">Regenerate</button>
-            <button id="apply-outline" class="primary-button">Apply to Document</button>
+            <button id="regenerate-outline" class="secondary-button"><i class="fas fa-redo"></i> Regenerate</button>
+            <button id="apply-outline" class="primary-button"><i class="fas fa-check"></i> Apply to Document</button>
           </div>
         </div>
       </div>
@@ -100,7 +102,9 @@
           <div id="analysis-status" class="suggested-length">
             No analysis yet. Click the button above to analyze the current document.
           </div>
-          <div id="analyzing-spinner" class="spinner" style="display: none;"></div>
+          <div id="analyzing-spinner" class="spinner" style="display: none;">
+            <i class="fas fa-spinner"></i>
+          </div>
 
       
           <div class="analysis-metrics detailed" style="margin-top: 16px;">
@@ -129,7 +133,7 @@
             </div>
           </div>
         </div>
-        <button id="analyze-doc-button" class="primary-button">Analyze Document</button>
+        <button id="analyze-doc-button" class="primary-button"><i class="fas fa-chart-bar"></i> Analyze Document</button>
       </div>      
     </div>
   </div>

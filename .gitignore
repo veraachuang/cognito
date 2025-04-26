@@ -4,3 +4,4 @@ venv/
 pub.pem
 frontend.pem
 backend/.env
+node_modules

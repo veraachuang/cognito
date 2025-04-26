@@ -1,4 +1,11 @@
 // sidebar.js
+async function getSecretKey() {
+  const res = await fetch('http://localhost:3001/api/secret');
+  const data = await res.json();
+  console.log('Secret key:', data.key);
+  return data.key;
+}
+
 let DOC_ID = null;  
 console.log('[Cognito] Sidebar script loaded');
 window.parent.postMessage({ action: 'sidebarReady' }, '*');
@@ -331,7 +338,7 @@ async function analyzeTextWithOpenAI(text) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer `
+      'Authorization': `Bearer ${await getSecretKey()}`
     },
     body: JSON.stringify({
       model: 'gpt-4',
@@ -382,7 +389,7 @@ async function generateOutlineWithOpenAI(text) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer `
+      'Authorization': `Bearer ${await getSecretKey()}`
     },
     body: JSON.stringify({
       model: 'gpt-4',

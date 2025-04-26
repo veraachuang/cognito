@@ -26,7 +26,7 @@
     "https://www.googleapis.com/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://api.openai.com https://docs.googleapis.com https://www.googleapis.com https://accounts.google.com http://localhost:5000"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://api.openai.com https://docs.googleapis.com https://www.googleapis.com https://accounts.google.com http://localhost:5000 http://localhost:3001"
   },
   "action": {
     "default_popup": "dist/popup.html",

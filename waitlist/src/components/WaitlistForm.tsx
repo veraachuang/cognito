@@ -64,21 +64,21 @@ const WaitlistForm = () => {
   };
 
   return (
-    <div className="max-w-md">
+    <div className="w-full max-w-md">
       {isSubmitted ? (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start space-x-3">
           <Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-          <p className="text-green-800">
+          <p className="text-green-800 text-sm md:text-base">
             Thanks for joining! We'll notify you when Cognito is ready.
           </p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="relative">
-          <div className="flex">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-0">
             <input
               type="email"
               placeholder="Enter your email address"
-              className={`flex-1 px-4 py-3 rounded-l-lg border ${
+              className={`flex-1 px-4 py-3 rounded-lg sm:rounded-r-none border ${
                 isError ? 'border-red-500' : 'border-gray-300'
               } focus:outline-none focus:ring-2 focus:ring-[#c82e2e] focus:border-transparent`}
               value={email}
@@ -87,7 +87,7 @@ const WaitlistForm = () => {
             />
             <button
               type="submit"
-              className={`bg-[#c82e2e] text-white px-6 py-3 rounded-r-lg font-medium hover:bg-[#b52727] transition-colors duration-300 flex items-center gap-2 ${
+              className={`bg-[#c82e2e] text-white px-6 py-3 rounded-lg sm:rounded-l-none font-medium hover:bg-[#b52727] transition-colors duration-300 flex items-center justify-center gap-2 ${
                 isLoading ? 'opacity-70 cursor-not-allowed' : ''
               }`}
               disabled={isLoading}
@@ -100,9 +100,9 @@ const WaitlistForm = () => {
             </button>
           </div>
           {isError && (
-            <div className="absolute -bottom-6 left-0 text-red-600 text-sm flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
-              {errorMessage}
+            <div className="mt-2 text-red-600 text-sm flex items-center gap-1">
+              <AlertCircle className="h-3 w-3 flex-shrink-0" />
+              <span>{errorMessage}</span>
             </div>
           )}
         </form>

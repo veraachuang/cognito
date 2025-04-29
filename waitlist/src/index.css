@@ -13,9 +13,19 @@
   50% { transform: translateY(calc(-50% - 10px)) rotate(3deg); }
 }
 
+@keyframes floatMobile {
+  0%, 100% { transform: translateY(-50%) rotate(2deg); }
+  50% { transform: translateY(calc(-50% - 5px)) rotate(2deg); }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateX(-20px); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeInMobile {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes typing {
@@ -26,6 +36,16 @@
 
 .animate-float {
   animation: float 6s ease-in-out infinite;
+}
+
+@media (max-width: 768px) {
+  .animate-float {
+    animation: floatMobile 6s ease-in-out infinite;
+  }
+  
+  .animate-fade-in {
+    animation: fadeInMobile 1s ease-out forwards;
+  }
 }
 
 .animate-fade-in {
@@ -41,4 +61,9 @@ body {
     Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Add spacing fix for error messages */
+.form-error-spacing {
+  min-height: 24px;
 }

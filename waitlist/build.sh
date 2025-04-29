@@ -6,7 +6,12 @@ echo "Starting build process..."
 # Install dependencies
 npm ci
 
+# Ensure terser is installed
+echo "Ensuring terser is installed..."
+npm install --no-save terser
+
 # Build the frontend assets
+echo "Building frontend assets..."
 npm run build
 
 # Ensure dist directory exists

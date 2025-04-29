@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
+  "buildCommand": "chmod +x ./build.sh && ./build.sh",
   "outputDirectory": "dist",
-  "installCommand": "npm ci --only=production",
+  "installCommand": "npm ci",
   "framework": "vite",
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1" },

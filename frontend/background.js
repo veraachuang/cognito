@@ -48,7 +48,7 @@ function revokeAndClearAllTokens(callback) {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('[Cognito] Message received:', request.action);
-  
+
   // Handle reading document text
   if (request.action === "getDocText") {
     chrome.identity.getAuthToken({ interactive: true }, function(token) {
@@ -71,126 +71,142 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         })
         .catch(err => sendResponse({ error: err.message }));
     });
-    
+
     return true;
   }
-  
+
   // Handle insertOutlineWithAPI action - enhanced API-based insertion method
   if (request.action === "insertOutlineWithAPI") {
+    console.log('[Cognito] Received insertOutlineWithAPI request:', {
+      docId: request.docId,
+      contentLength: request.content ? request.content.length : 0,
+      contentPreview: request.content ? request.content.substring(0, 100) + '...' : 'EMPTY'
+    });
+    
     const docId = request.docId;
     const content = request.content;
     
-    if (!docId || !content) {
+    if (!docId) {
+      console.error('[Cognito] Missing docId parameter');
       sendResponse({ 
         success: false, 
-        error: 'Missing required parameters'
+        error: 'Missing document ID'
       });
       return true;
     }
     
-    console.log('[Cognito] Inserting outline into document with Google Docs API:', docId);
+    if (!content || !content.trim()) {
+      console.error('[Cognito] Missing or empty content parameter');
+      sendResponse({ 
+        success: false, 
+        error: 'Missing or empty content'
+      });
+      return true;
+    }
     
-    // Try with a fresh token every time
-    refreshAndGetToken()
-      .then(token => {
-        console.log('[Cognito] Obtained fresh token for API access');
-        
-        // First check if we have write access to the document
-        return checkDocumentAccess(docId, token)
-          .then(accessInfo => {
-            if (!accessInfo.canWrite) {
-              throw new Error(`Permission denied: ${accessInfo.message}. You need edit access to this document.`);
+    console.log('[Cognito] Inserting outline into document with simplified flow:', docId);
+    
+    // Use a simplified approach - get token directly
+    chrome.identity.getAuthToken({ interactive: true }, (token) => {
+      if (chrome.runtime.lastError || !token) {
+        console.error('[Cognito] Error getting auth token:', chrome.runtime.lastError);
+        sendResponse({ 
+          success: false, 
+          error: 'Authentication failed: ' + 
+                 (chrome.runtime.lastError?.message || 'No token retrieved')
+        });
+        return;
+      }
+      
+      console.log('[Cognito] Got token, proceeding with direct document update');
+      
+      // Create a simple request to insert text - use the beginning of the document
+      const requestBody = {
+        requests: [
+          {
+            insertText: {
+              location: {
+                index: 1  // Start of the document (after initial position 0)
+              },
+              text: content
             }
-            
-            // Use the batchUpdate endpoint to insert text at the beginning of the document
-            return insertTextIntoDocument(docId, content, token);
-          });
+          }
+        ]
+      };
+      
+      fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       })
       .then(response => {
-        console.log('[Cognito] Document updated successfully:', response);
+        console.log('[Cognito] API response status:', response.status, response.statusText);
+        
+        if (!response.ok) {
+          return response.text().then(text => {
+            console.error('[Cognito] API error response:', text);
+            throw new Error(`API error (${response.status}): ${text}`);
+          });
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('[Cognito] Document update success:', data);
         sendResponse({ success: true });
       })
       .catch(error => {
-        console.error('[Cognito] Error inserting outline:', error);
+        console.error('[Cognito] Error in direct document update:', error);
         
-        if (error.status === 401 || error.message.includes('token')) {
-          console.log('[Cognito] Token issue detected, trying one more time with a fresh token');
+        // Try revoking the token and getting a new one
+        chrome.identity.removeCachedAuthToken({ token }, () => {
+          console.log('[Cognito] Token revoked, trying with new token');
           
-          // Properly handle token revocation process
-          chrome.identity.getAuthToken({ interactive: false }, function(oldToken) {
-            // If we have a token, remove it
-            if (oldToken) {
-              chrome.identity.removeCachedAuthToken({ token: oldToken }, function() {
-                // Try to get a completely fresh token
-                chrome.identity.getAuthToken({ interactive: true }, function(freshToken) {
-                  if (chrome.runtime.lastError || !freshToken) {
-                    const errorMsg = chrome.runtime.lastError 
-                      ? chrome.runtime.lastError.message 
-                      : 'No token retrieved';
-                    console.error('[Cognito] Failed to get fresh token:', errorMsg);
-                    sendResponse({ 
-                      success: false, 
-                      error: 'Authentication failed after retry: ' + errorMsg,
-                      details: error.details || error.message
-                    });
-                    return;
-                  }
-                  
-                  // Try one more time with the fresh token
-                  insertTextIntoDocument(docId, content, freshToken)
-                    .then(response => {
-                      console.log('[Cognito] Document updated successfully on retry:', response);
-                      sendResponse({ success: true });
-                    })
-                    .catch(finalError => {
-                      console.error('[Cognito] Final error after token refresh:', finalError);
-                      sendResponse({ 
-                        success: false, 
-                        error: 'API error: ' + finalError.message,
-                        details: finalError.details || finalError.message
-                      });
-                    });
-                });
+          chrome.identity.getAuthToken({ interactive: true }, (newToken) => {
+            if (chrome.runtime.lastError || !newToken) {
+              console.error('[Cognito] Error getting new token:', chrome.runtime.lastError);
+              sendResponse({ 
+                success: false, 
+                error: 'Authentication failed on retry: ' + 
+                      (chrome.runtime.lastError?.message || 'No token retrieved')
               });
-            } else {
-              // No existing token to revoke, just try again
-              chrome.identity.getAuthToken({ interactive: true }, function(freshToken) {
-                // Same token handling logic as above
-                if (chrome.runtime.lastError || !freshToken) {
-                  sendResponse({ 
-                    success: false, 
-                    error: 'Authentication failed: ' + 
-                           (chrome.runtime.lastError?.message || 'No token retrieved'),
-                    details: error.details || error.message
-                  });
-                  return;
-                }
-                
-                insertTextIntoDocument(docId, content, freshToken)
-                  .then(response => {
-                    console.log('[Cognito] Document updated successfully with new token:', response);
-                    sendResponse({ success: true });
-                  })
-                  .catch(finalError => {
-                    console.error('[Cognito] Final error after getting new token:', finalError);
-                    sendResponse({ 
-                      success: false, 
-                      error: 'API error: ' + finalError.message,
-                      details: finalError.details || finalError.message
-                    });
-                  });
-              });
+              return;
             }
+            
+            // Try again with the new token
+            fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${newToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(requestBody)
+            })
+            .then(response => {
+              if (!response.ok) {
+                return response.text().then(text => {
+                  throw new Error(`API error on retry (${response.status}): ${text}`);
+                });
+              }
+              return response.json();
+            })
+            .then(data => {
+              console.log('[Cognito] Document update success on retry:', data);
+              sendResponse({ success: true });
+            })
+            .catch(finalError => {
+              console.error('[Cognito] Final error after token refresh:', finalError);
+              sendResponse({ 
+                success: false, 
+                error: 'API error: ' + finalError.message
+              });
+            });
           });
-        } else {
-          // For other errors, return detailed error information
-          sendResponse({ 
-            success: false, 
-            error: formatErrorMessage(error),
-            details: error.details || error.message
-          });
-        }
+        });
       });
+    });
     
     return true;
   }

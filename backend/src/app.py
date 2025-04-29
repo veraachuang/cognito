@@ -19,8 +19,6 @@ CORS(app,
      resources={
          r"/api/*": {
              "origins": [
-                 "chrome-extension://abahnimgbnbihioopdehkbkpabaooepe",
-                 "chrome-extension://nhogikkdeeohkdmohgfgfcpijfbfeikm",
                  "chrome-extension://*",  # Allow any Chrome extension during development
                  "http://localhost:5000",
                  "http://127.0.0.1:5000"
@@ -87,6 +85,12 @@ API_DOCS = """
         <p><code>POST /api/generate-outline</code></p>
         <p>Generate an outline from provided text.</p>
     </div>
+    
+    <div class="endpoint">
+        <h2>Get API Key</h2>
+        <p><code>GET /api/secret</code></p>
+        <p>Get the OpenAI API key (for authorized clients only).</p>
+    </div>
 </body>
 </html>
 """
@@ -107,6 +111,14 @@ blog_dataset.load_dataset()
 def health_check():
     """Health check endpoint"""
     return jsonify({"status": "healthy"})
+
+@app.route('/api/secret', methods=['GET'])
+def get_secret():
+    """Endpoint to securely get the OpenAI API key"""
+    secret_key = os.getenv('OPENAI_API_KEY')
+    if not secret_key:
+        return jsonify({"error": "API key not found"}), 500
+    return jsonify({"key": secret_key})
 
 @app.route('/api/upload', methods=['POST'])
 def upload_files():

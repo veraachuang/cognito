@@ -380,3 +380,59 @@ body {
 #analyze-doc-button {
   margin-top: 24px;
 }
+
+/* Outline Styles */
+.outline-root {
+  padding-left: 0;
+  margin-left: 0;
+  list-style-type: none;
+}
+
+.outline-root ul {
+  padding-left: 12px;
+  list-style-type: none;
+  margin-top: 2px;
+}
+
+.outline-main-section {
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+.outline-marker {
+  display: inline-block;
+  min-width: 18px;
+  margin-right: 5px;
+  color: var(--primary-text);
+}
+
+#outline-container li {
+  margin-bottom: 4px;
+  line-height: 1.3;
+  text-align: left;
+}
+
+/* Style for Roman numerals that should be displayed without the actual numeral */
+.section-title {
+  font-weight: bold;
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+/* Explicitly set left alignment for all list items */
+#outline-container ul, 
+#outline-container li {
+  text-align: left;
+}
+
+/* Set specific styles for numbered entries to ensure proper alignment */
+.numbered-entry {
+  margin-left: 0;
+  padding-left: 0;
+}
+
+/* Remove the previous different levels margin */
+#outline-container ul ul { 
+  margin-top: 2px;
+}

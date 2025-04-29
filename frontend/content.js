@@ -36,49 +36,64 @@ window.addEventListener('message', evt => {
   
   // Handle applying outline to the document
   if (evt.data?.action === 'applyOutline' && evt.source === sidebarFrame?.contentWindow) {
-    insertOutlineIntoDoc(evt.data.outline);
+    // Use docId from message if provided, otherwise extract from URL
+    const docId = evt.data.docId || extractDocId();
+    
+    // Get the outline text directly - no HTML processing
+    const outlineText = evt.data.outline;
+    
+    if (!outlineText || !outlineText.trim()) {
+      alert('Error: Empty outline content received.');
+      return;
+    }
+    
+    insertOutlineDirectly(outlineText, docId);
   }
 });
 
-/** Insert the outline content into the Google Doc */
-function insertOutlineIntoDoc(outlineHTML) {
-  // Get Doc ID
-  const docId = extractDocId();
+/** Insert the outline text directly into the Google Doc without HTML processing */
+function insertOutlineDirectly(outlineText, docId) {
   if (!docId) {
     alert('Could not determine Google Doc ID. Please make sure you are in a Google Doc.');
     return;
   }
   
-  // First convert HTML to plain text that's formatted for Google Docs
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = outlineHTML;
-  
-  // Process the HTML to create a structured outline text
-  let outlineText = processOutlineToText(tempDiv);
+  if (!outlineText || !outlineText.trim()) {
+    alert('Error: Empty outline content.');
+    return;
+  }
   
   // Show a loading toast
   const toast = showToast('Inserting outline via Google Docs API...', 60000);
   
-  // Use the Google Docs API to insert the text
+  // Log for debugging
+  console.log('[Cognito] Inserting outline directly into document:', docId);
+  console.log('[Cognito] Content length:', outlineText.length);
+  console.log('[Cognito] Content preview:', outlineText.substring(0, 100) + '...');
+  
+  // Use the Google Docs API to insert the text directly
   chrome.runtime.sendMessage({
     action: 'insertOutlineWithAPI',
     docId: docId,
     content: outlineText
   }, response => {
-    // Remove the processing toast
+    // Remove the processing toast regardless of outcome
     toast?.remove();
     
-    if (response && response.success) {
-      // Show success message
+    if (!response) {
+      console.error('[Cognito] No response from background script');
+      showToast('Error: No response from background script. Please try again.', 5000);
+      return;
+    }
+    
+    if (response.success) {
       showToast('Outline applied to document successfully!');
     } else {
-      // Show error message with detailed information
-      const errorMsg = response?.error || 'Unknown error';
+      const errorMsg = response.error || 'Unknown error';
       console.error('[Cognito] Error applying outline:', errorMsg);
       showToast(`Error: ${errorMsg}. Please try again.`, 5000);
       
-      // Log detailed error information
-      if (response?.details) {
+      if (response.details) {
         console.error('[Cognito] API Error details:', response.details);
       }
     }
@@ -137,7 +152,7 @@ function processOutlineToText(container) {
   let result = '';
   
   // Add a title at the beginning
-  result += "GENERATED OUTLINE\n\n";
+  // result += "GENERATED OUTLINE\n\n";
   
   // Find all elements in the container
   const headers = container.querySelectorAll('h2, h3, h4, h5');
@@ -194,20 +209,46 @@ function processListToText(list, indentLevel = 0) {
   // Process list items
   const items = list.querySelectorAll(':scope > li');
   items.forEach(item => {
-    // Extract the text from this list item (excluding nested lists)
-    let itemText = item.childNodes[0].nodeType === 3 ? 
-                  item.childNodes[0].textContent.trim() :
-                  Array.from(item.childNodes)
-                    .filter(node => node.nodeType === 3)
-                    .map(node => node.textContent.trim())
-                    .join(' ');
+    // Extract marker if present (for numbers and letters)
+    let marker = '';
+    const markerEl = item.querySelector('.outline-marker');
     
-    if (!itemText && item.firstChild && item.firstChild.nodeType !== 3) {
-      itemText = item.firstChild.textContent.trim();
+    if (markerEl) {
+      marker = markerEl.textContent;
     }
     
-    // Add this list item with bullet point
-    result += `${baseIndent}• ${itemText}\n`;
+    // Extract content text from the list item
+    // Look for item's text content, prioritizing direct text nodes
+    let itemText = '';
+    
+    // First look for the section-title class for main sections
+    const sectionTitle = item.querySelector('.section-title');
+    if (sectionTitle) {
+      // Bold titles for main sections
+      itemText = sectionTitle.textContent.trim();
+      result += `${baseIndent}${itemText}\n`;
+    }
+    else {
+      // Regular list item handling
+      // Try to find all text nodes that are direct children
+      const textNodes = Array.from(item.childNodes)
+        .filter(node => node.nodeType === 3 || 
+                       (node.nodeType === 1 && 
+                        !node.classList.contains('outline-marker') && 
+                        node.tagName !== 'UL'))
+        .map(node => node.textContent.trim())
+        .filter(text => text);
+      
+      itemText = textNodes.join(' ').trim();
+      
+      // If item has specific marker class (outline-marker), use that instead of bullet
+      if (marker) {
+        result += `${baseIndent}${marker} ${itemText}\n`;
+      } else {
+        // Otherwise use standard indentation with dash
+        result += `${baseIndent}- ${itemText}\n`;
+      }
+    }
     
     // Process any nested lists
     const nestedLists = item.querySelectorAll(':scope > ul');

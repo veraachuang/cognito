@@ -18,20 +18,45 @@ app.use(express.json());
 // Google Sheets Setup
 let auth;
 
-// First try environment variables (for Vercel deployment)
-if (process.env.GOOGLE_CREDENTIALS) {
+// First check if we have individual credential fields
+if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+  try {
+    // Construct credentials object from individual environment variables
+    const credentials = {
+      type: 'service_account',
+      project_id: process.env.GOOGLE_PROJECT_ID,
+      private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      client_email: process.env.GOOGLE_CLIENT_EMAIL,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+      token_uri: 'https://oauth2.googleapis.com/token',
+      auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+      client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL || `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.GOOGLE_CLIENT_EMAIL)}`
+    };
+    
+    auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    console.log('Using Google credentials from individual environment variables');
+  } catch (error) {
+    console.error('Error setting up credentials from environment variables:', error);
+  }
+// Next try the full JSON credentials
+} else if (process.env.GOOGLE_CREDENTIALS) {
   try {
     const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
     auth = new google.auth.GoogleAuth({
       credentials,
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
-    console.log('Using Google credentials from environment variable');
+    console.log('Using Google credentials from environment variable JSON');
   } catch (error) {
     console.error('Error parsing GOOGLE_CREDENTIALS:', error);
   }
+// Finally fall back to credentials file (local development)
 } else {
-  // Fall back to credentials file (for local development)
   const keyFilePath = path.resolve(__dirname, 'credentials.json');
   if (fs.existsSync(keyFilePath)) {
     auth = new google.auth.GoogleAuth({

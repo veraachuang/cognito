@@ -3,6 +3,7 @@ const cors = require('cors');
 const { google } = require('googleapis');
 const dotenv = require('dotenv');
 const path = require('path');
+const fs = require('fs');
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '.env') });
@@ -15,11 +16,33 @@ app.use(cors());
 app.use(express.json());
 
 // Google Sheets Setup
-const auth = new google.auth.GoogleAuth({
-  // Path to your service account key file
-  keyFile: path.resolve(__dirname, 'credentials.json'),
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-});
+let auth;
+
+// First try environment variables (for Vercel deployment)
+if (process.env.GOOGLE_CREDENTIALS) {
+  try {
+    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    console.log('Using Google credentials from environment variable');
+  } catch (error) {
+    console.error('Error parsing GOOGLE_CREDENTIALS:', error);
+  }
+} else {
+  // Fall back to credentials file (for local development)
+  const keyFilePath = path.resolve(__dirname, 'credentials.json');
+  if (fs.existsSync(keyFilePath)) {
+    auth = new google.auth.GoogleAuth({
+      keyFile: keyFilePath,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    console.log('Using Google credentials from credentials.json file');
+  } else {
+    console.error('No Google credentials found in environment or file system');
+  }
+}
 
 const sheets = google.sheets({ version: 'v4', auth });
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '1p2gAguB7f2qkWgG7R5pgmXCRie4d8xG2Z9IRr63JaNw';

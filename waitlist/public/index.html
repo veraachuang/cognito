@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cognito Waitlist</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      line-height: 1.6;
+      color: #333;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      color: #2563eb;
+    }
+    p {
+      margin-bottom: 1.5rem;
+    }
+    form {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+    }
+    input[type="email"] {
+      flex: 1;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #1d4ed8;
+    }
+    .message {
+      padding: 1rem;
+      border-radius: 4px;
+      display: none;
+    }
+    .success {
+      background-color: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #10b981;
+    }
+    .error {
+      background-color: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #ef4444;
+    }
+  </style>
+</head>
+<body>
+  <h1>Join Cognito Waitlist</h1>
+  <p>Sign up to be the first to know when Cognito launches. Get early access to our AI-powered writing assistant.</p>
+  
+  <form id="waitlist-form">
+    <input type="email" id="email" placeholder="Enter your email address" required>
+    <button type="submit">Join Waitlist</button>
+  </form>
+  
+  <div id="success-message" class="message success">
+    Thank you for joining our waitlist! We'll notify you when Cognito launches.
+  </div>
+  
+  <div id="error-message" class="message error">
+    Sorry, there was an error adding you to the waitlist. Please try again.
+  </div>
+
+  <script>
+    document.getElementById('waitlist-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value;
+      const successMessage = document.getElementById('success-message');
+      const errorMessage = document.getElementById('error-message');
+      
+      // Hide any previous messages
+      successMessage.style.display = 'none';
+      errorMessage.style.display = 'none';
+      
+      try {
+        const response = await fetch('/api/join-waitlist', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          successMessage.style.display = 'block';
+          document.getElementById('email').value = '';
+        } else {
+          errorMessage.textContent = data.error || 'Failed to join waitlist. Please try again.';
+          errorMessage.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        errorMessage.textContent = 'Network error. Please try again later.';
+        errorMessage.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html> 

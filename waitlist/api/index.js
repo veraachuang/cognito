@@ -11,14 +11,30 @@ if (process.env.NODE_ENV !== 'production') {
 // Initialize Express app
 const app = express();
 
-// More permissive CORS configuration for mobile and browser support
+// Enhanced CORS configuration for mobile and browser support
 app.use(cors({
   origin: '*', // Allow all origins
   methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
   credentials: true,
   maxAge: 86400 // Cache preflight requests for 24 hours
 }));
+
+// Additional middleware to ensure CORS headers are set
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
+  
+  // Handling preflight OPTIONS requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
@@ -72,7 +88,8 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    mobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(req.headers['user-agent'] || '')
+    mobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(req.headers['user-agent'] || ''),
+    env: process.env.NODE_ENV || 'unknown'
   });
 });
 
@@ -139,12 +156,19 @@ const addToWaitlist = async (email) => {
 // API route for joining waitlist - POST JSON
 app.post('/api/join-waitlist', async (req, res) => {
   try {
-    const { email } = req.body;
+    // Log information about the request for debugging
+    console.log('POST request headers:', req.headers);
+    console.log('POST request body:', req.body);
+    
+    const email = req.body.email;
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(req.headers['user-agent'] || '');
     
     console.log('Received waitlist request:', { email, isMobile });
     
     const result = await addToWaitlist(email);
+    
+    // Ensure CORS headers for the response
+    res.header('Access-Control-Allow-Origin', '*');
     res.status(200).json(result);
   } catch (error) {
     console.error('Error adding to waitlist (POST):', error);

@@ -60,6 +60,20 @@
       color: #383d41;
       border: 1px solid #d6d8db;
     }
+    .direct-link {
+      margin-top: 20px;
+      padding: 10px;
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      border-radius: 4px;
+      color: #856404;
+      display: none;
+    }
+    .direct-link a {
+      color: #c82e2e;
+      text-decoration: underline;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -73,6 +87,9 @@
     </form>
     
     <div id="status" class="status" style="display: none;"></div>
+    <div id="directLink" class="direct-link" style="display: none;">
+      Having trouble? <a href="#" id="directFormLink">Click here to use our direct form</a>
+    </div>
   </div>
 
   <script>
@@ -82,6 +99,11 @@
       const email = document.getElementById('email').value;
       const submitBtn = document.getElementById('submitBtn');
       const status = document.getElementById('status');
+      const directLink = document.getElementById('directLink');
+      const directFormLink = document.getElementById('directFormLink');
+      
+      // Update direct link with the email
+      directFormLink.href = `https://trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=true`;
       
       // Simple validation
       if (!email || !email.includes('@')) {
@@ -96,9 +118,21 @@
       status.className = 'status loading';
       status.textContent = 'Submitting...';
       status.style.display = 'block';
+      directLink.style.display = 'none';
       
+      // Try all submission methods in sequence
+      await trySubmitMethods(email);
+      
+      // Re-enable button
+      submitBtn.disabled = false;
+    });
+    
+    async function trySubmitMethods(email) {
+      const status = document.getElementById('status');
+      const directLink = document.getElementById('directLink');
+      
+      // First try POST method (most ideal)
       try {
-        // Use the production URL for API request
         const response = await fetch('https://trycognito.app/api/join-waitlist', {
           method: 'POST',
           headers: {
@@ -106,7 +140,9 @@
             'Accept': 'application/json'
           },
           body: JSON.stringify({ email }),
-          credentials: 'omit'
+          credentials: 'omit',
+          // Short timeout to quickly move to fallbacks if needed
+          signal: AbortSignal.timeout(5000)
         });
         
         if (response.ok) {
@@ -114,44 +150,46 @@
           status.className = 'status success';
           status.textContent = 'Thanks for joining! We\'ll notify you when Cognito is ready.';
           document.getElementById('email').value = '';
+          return; // Done
         } else {
-          // Server error
-          const data = await response.json();
-          status.className = 'status error';
-          status.textContent = data.error || 'Failed to join waitlist. Please try again.';
+          // Server error - try the next method
+          console.warn('POST method failed with status:', response.status);
+          throw new Error('POST method failed');
         }
       } catch (error) {
-        // Network or other error
-        console.error('Error:', error);
-        status.className = 'status error';
-        status.textContent = 'Connection error. Please check your internet and try again.';
+        console.warn('POST submission failed:', error);
         
-        // Try fallback method if the first method fails
+        // Try GET method fallback
         try {
+          status.className = 'status loading';
           status.textContent = 'Trying alternative method...';
           
           const fallbackUrl = `https://trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=false`;
           const fallbackResponse = await fetch(fallbackUrl, {
             method: 'GET',
-            credentials: 'omit'
+            credentials: 'omit',
+            // Short timeout
+            signal: AbortSignal.timeout(5000)
           });
           
           if (fallbackResponse.ok) {
             status.className = 'status success';
             status.textContent = 'Thanks for joining! We\'ll notify you when Cognito is ready.';
             document.getElementById('email').value = '';
+            return; // Done
           } else {
-            status.className = 'status error';
-            status.textContent = 'Failed to join waitlist. Please try again later.';
+            throw new Error('GET method failed');
           }
         } catch (fallbackError) {
+          console.warn('GET fallback failed:', fallbackError);
+          
+          // Both automated methods failed, show direct link
           status.className = 'status error';
-          status.textContent = 'Unable to connect. Please try again later.';
+          status.textContent = 'Unable to connect to waitlist. Please try the direct form link below.';
+          directLink.style.display = 'block';
         }
-      } finally {
-        submitBtn.disabled = false;
       }
-    });
+    }
   </script>
 </body>
 </html> 

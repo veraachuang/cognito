@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mobile Waitlist Form</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #c82e2e;
+    }
+    form {
+      margin-top: 20px;
+    }
+    input[type="email"] {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #c82e2e;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .status {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .loading {
+      background: #e2e3e5;
+      color: #383d41;
+      border: 1px solid #d6d8db;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Join Cognito Waitlist</h1>
+    <p>Enter your email to join our waitlist and be notified when we launch.</p>
+    
+    <form id="waitlistForm">
+      <input type="email" id="email" placeholder="Your email address" required>
+      <button type="submit" id="submitBtn">Join Waitlist</button>
+    </form>
+    
+    <div id="status" class="status" style="display: none;"></div>
+  </div>
+
+  <script>
+    document.getElementById('waitlistForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value;
+      const submitBtn = document.getElementById('submitBtn');
+      const status = document.getElementById('status');
+      
+      // Simple validation
+      if (!email || !email.includes('@')) {
+        status.className = 'status error';
+        status.textContent = 'Please enter a valid email address';
+        status.style.display = 'block';
+        return;
+      }
+      
+      // Show loading state
+      submitBtn.disabled = true;
+      status.className = 'status loading';
+      status.textContent = 'Submitting...';
+      status.style.display = 'block';
+      
+      try {
+        // Use the production URL for API request
+        const response = await fetch('https://trycognito.app/api/join-waitlist', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ email }),
+          credentials: 'omit'
+        });
+        
+        if (response.ok) {
+          // Success
+          status.className = 'status success';
+          status.textContent = 'Thanks for joining! We\'ll notify you when Cognito is ready.';
+          document.getElementById('email').value = '';
+        } else {
+          // Server error
+          const data = await response.json();
+          status.className = 'status error';
+          status.textContent = data.error || 'Failed to join waitlist. Please try again.';
+        }
+      } catch (error) {
+        // Network or other error
+        console.error('Error:', error);
+        status.className = 'status error';
+        status.textContent = 'Connection error. Please check your internet and try again.';
+        
+        // Try fallback method if the first method fails
+        try {
+          status.textContent = 'Trying alternative method...';
+          
+          const fallbackUrl = `https://trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=false`;
+          const fallbackResponse = await fetch(fallbackUrl, {
+            method: 'GET',
+            credentials: 'omit'
+          });
+          
+          if (fallbackResponse.ok) {
+            status.className = 'status success';
+            status.textContent = 'Thanks for joining! We\'ll notify you when Cognito is ready.';
+            document.getElementById('email').value = '';
+          } else {
+            status.className = 'status error';
+            status.textContent = 'Failed to join waitlist. Please try again later.';
+          }
+        } catch (fallbackError) {
+          status.className = 'status error';
+          status.textContent = 'Unable to connect. Please try again later.';
+        }
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html> 

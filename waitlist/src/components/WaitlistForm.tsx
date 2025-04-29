@@ -23,6 +23,14 @@ const getApiUrl = () => {
 const API_URL = getApiUrl();
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+// Ensure we have a full URL with protocol for API calls
+const ensureFullUrl = (url: string) => {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  return `https://${url}`;
+};
+
 const WaitlistForm = () => {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -61,20 +69,26 @@ const WaitlistForm = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10-second timeout
       
+      // Make sure we use the full URL with https for mobile
+      const healthUrl = isMobile ? 
+        'https://trycognito.app/api/health' : 
+        `${API_URL}/api/health`;
+      
       setDebugInfo(prev => ({
         ...prev,
-        checkingEndpoint: `${API_URL}/api/health`,
+        checkingEndpoint: healthUrl,
         checkStartTime: new Date().toISOString()
       }));
       
       // Use health endpoint rather than join-waitlist for connection check
-      const response = await fetch(`${API_URL}/api/health`, {
+      const response = await fetch(healthUrl, {
         method: 'GET',
         signal: controller.signal,
         headers: {
           'Accept': 'application/json',
           'User-Agent': navigator.userAgent
-        }
+        },
+        cache: 'no-store' // Prevent caching issues on mobile
       });
       
       clearTimeout(timeoutId);
@@ -137,8 +151,13 @@ const WaitlistForm = () => {
     setConnectionError(false);
     
     try {
-      // Only use JSON method directly - no redirects
-      const success = await submitViaJson();
+      // First try direct JSON method
+      let success = await submitViaJson();
+      
+      // If we're on mobile and the JSON method failed, try the GET method
+      if (!success && isMobile) {
+        success = await submitViaGetMethod();
+      }
       
       if (success) {
         setIsSubmitted(true);
@@ -159,7 +178,7 @@ const WaitlistForm = () => {
       }));
       
       if (error instanceof Error) {
-        setErrorMessage('Please try again. If the issue persists, please try again later.');
+        setErrorMessage('Error connecting to waitlist. Please try again.');
       } else {
         setErrorMessage('Please try again later.');
       }
@@ -173,18 +192,22 @@ const WaitlistForm = () => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
     
+    // Make sure we have a full URL with https:// for API submission
+    const fullApiUrl = ensureFullUrl(API_URL);
+    
+    // For mobile, explicitly use the production URL with https
+    const submissionUrl = isMobile ? 
+      'https://trycognito.app/api/join-waitlist' : 
+      `${fullApiUrl}/api/join-waitlist`;
+    
     setDebugInfo(prev => ({
       ...prev,
-      submittingJsonTo: `${API_URL}/api/join-waitlist`,
-      jsonSubmitStartTime: new Date().toISOString()
+      submittingJsonTo: submissionUrl,
+      jsonSubmitStartTime: new Date().toISOString(),
+      usingMobileEndpoint: isMobile
     }));
     
     try {
-      // For mobile devices, ensure we're using the production URL
-      const submissionUrl = isMobile ? 
-        'https://trycognito.app/api/join-waitlist' : 
-        `${API_URL}/api/join-waitlist`;
-        
       const response = await fetch(submissionUrl, {
         method: 'POST',
         headers: {
@@ -193,7 +216,8 @@ const WaitlistForm = () => {
         },
         body: JSON.stringify({ email }),
         signal: controller.signal,
-        credentials: 'omit' // Avoid cookies/credentials for simpler CORS
+        credentials: 'omit', // Avoid cookies/credentials for simpler CORS
+        cache: 'no-store' // Prevent caching issues on mobile
       });
       
       clearTimeout(timeoutId);
@@ -215,6 +239,55 @@ const WaitlistForm = () => {
         ...prev,
         jsonSubmitError: error instanceof Error ? error.message : String(error),
         jsonSubmitEndTime: new Date().toISOString()
+      }));
+      throw error;
+    }
+  };
+  
+  // GET method as fallback for mobile devices
+  const submitViaGetMethod = async (): Promise<boolean> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    // Always use the production URL for mobile GET requests
+    const submissionUrl = `https://trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=false`;
+    
+    setDebugInfo(prev => ({
+      ...prev,
+      submittingGetTo: submissionUrl,
+      getSubmitStartTime: new Date().toISOString()
+    }));
+    
+    try {
+      const response = await fetch(submissionUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+        credentials: 'omit', // Avoid cookies/credentials for simpler CORS
+        cache: 'no-store' // Prevent caching issues
+      });
+      
+      clearTimeout(timeoutId);
+      
+      setDebugInfo(prev => ({
+        ...prev,
+        getSubmitStatus: response.status,
+        getSubmitOk: response.ok,
+        getSubmitEndTime: new Date().toISOString()
+      }));
+      
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+      
+      return true;
+    } catch (error) {
+      setDebugInfo(prev => ({
+        ...prev,
+        getSubmitError: error instanceof Error ? error.message : String(error),
+        getSubmitEndTime: new Date().toISOString()
       }));
       throw error;
     }

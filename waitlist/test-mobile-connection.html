@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mobile API Connection Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #c82e2e;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #c82e2e;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 10px 10px 0;
+    }
+    button:disabled {
+      background: #cccccc;
+    }
+    input[type="email"] {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    .status {
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 4px;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .loading {
+      background: #cce5ff;
+      color: #004085;
+      border: 1px solid #b8daff;
+    }
+    .result {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      white-space: pre-wrap;
+      font-size: 14px;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Mobile API Connection Test</h1>
+    
+    <div class="card">
+      <h2>1. Test API Connection</h2>
+      <p>Click to test the connection to the API service:</p>
+      <button id="testHealthBtn">Test Health Endpoint</button>
+      <div id="healthStatus" class="status"></div>
+      <pre id="healthResult" class="result" style="display: none;"></pre>
+    </div>
+    
+    <div class="card">
+      <h2>2. Test Waitlist Submission</h2>
+      <p>Enter an email and submit to test the Google Sheets integration:</p>
+      <input type="email" id="testEmail" placeholder="test@example.com" />
+      <button id="testSubmitBtn">Test Submission</button>
+      <div id="submitStatus" class="status"></div>
+      <pre id="submitResult" class="result" style="display: none;"></pre>
+    </div>
+  </div>
+
+  <script>
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const API_URL = 'https://trycognito.app';
+    
+    // Helper for showing status
+    function showStatus(elementId, type, message) {
+      const element = document.getElementById(elementId);
+      element.className = `status ${type}`;
+      element.textContent = message;
+      element.style.display = 'block';
+    }
+    
+    // Helper for showing result
+    function showResult(elementId, data) {
+      const element = document.getElementById(elementId);
+      element.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      element.style.display = 'block';
+    }
+    
+    // Test health endpoint
+    document.getElementById('testHealthBtn').addEventListener('click', async () => {
+      const healthStatus = document.getElementById('healthStatus');
+      const healthResult = document.getElementById('healthResult');
+      const btn = document.getElementById('testHealthBtn');
+      
+      try {
+        btn.disabled = true;
+        showStatus('healthStatus', 'loading', 'Testing connection...');
+        healthResult.style.display = 'none';
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const response = await fetch(`${API_URL}/api/health`, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': navigator.userAgent
+          }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        const responseData = await response.json();
+        
+        if (response.ok) {
+          showStatus('healthStatus', 'success', 'Connection successful! API is accessible.');
+          showResult('healthResult', responseData);
+        } else {
+          showStatus('healthStatus', 'error', `Error: Server returned ${response.status}`);
+          showResult('healthResult', responseData);
+        }
+      } catch (error) {
+        console.error('API connection test failed:', error);
+        showStatus('healthStatus', 'error', `Connection failed: ${error.message}`);
+        showResult('healthResult', {
+          error: error.message,
+          name: error.name,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        });
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    // Test submit endpoint
+    document.getElementById('testSubmitBtn').addEventListener('click', async () => {
+      const submitStatus = document.getElementById('submitStatus');
+      const submitResult = document.getElementById('submitResult');
+      const btn = document.getElementById('testSubmitBtn');
+      const email = document.getElementById('testEmail').value;
+      
+      if (!email) {
+        showStatus('submitStatus', 'error', 'Please enter an email address');
+        return;
+      }
+      
+      try {
+        btn.disabled = true;
+        showStatus('submitStatus', 'loading', 'Testing submission...');
+        submitResult.style.display = 'none';
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
+        const response = await fetch(`${API_URL}/api/join-waitlist`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ email }),
+          signal: controller.signal,
+          credentials: 'omit' // Avoid cookies/credentials for simpler CORS
+        });
+        
+        clearTimeout(timeoutId);
+        
+        let responseData;
+        try {
+          responseData = await response.json();
+        } catch (e) {
+          responseData = { parseError: e.message, text: await response.text() };
+        }
+        
+        if (response.ok) {
+          showStatus('submitStatus', 'success', 'Submission successful! Google Sheets connected.');
+          showResult('submitResult', responseData);
+        } else {
+          showStatus('submitStatus', 'error', `Error: Server returned ${response.status}`);
+          showResult('submitResult', responseData);
+        }
+      } catch (error) {
+        console.error('API submission test failed:', error);
+        showStatus('submitStatus', 'error', `Submission failed: ${error.message}`);
+        showResult('submitResult', {
+          error: error.message,
+          name: error.name,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        });
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html> 

@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mobile API Connection Test (Local)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #c82e2e;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #c82e2e;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 10px 10px 0;
+    }
+    button:disabled {
+      background: #cccccc;
+    }
+    input[type="email"] {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    .status {
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 4px;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .loading {
+      background: #cce5ff;
+      color: #004085;
+      border: 1px solid #b8daff;
+    }
+    .result {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      white-space: pre-wrap;
+      font-size: 14px;
+      margin-top: 15px;
+    }
+    .config-section {
+      background: #f0f0f0;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .log {
+      background: #333;
+      color: #fff;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 15px;
+    }
+    .note {
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      color: #856404;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Mobile API Connection Test (Local)</h1>
+    
+    <div class="config-section">
+      <h2>Connection Settings</h2>
+      <p>Testing against local development server</p>
+      <p>Your device IP: <span id="deviceIP">Loading...</span></p>
+      
+      <div class="form-group">
+        <label for="serverIP">Server IP:</label>
+        <input type="text" id="serverIP" value="10.136.63.24" style="width: 100%; margin: 5px 0; padding: 8px;" />
+      </div>
+      <div class="form-group">
+        <label for="apiPort">API Port:</label>
+        <input type="text" id="apiPort" value="3001" style="width: 100%; margin: 5px 0; padding: 8px;" />
+      </div>
+      <div class="note">
+        <strong>Note:</strong> Make sure your API server is running and accessible from this device.
+        If you're getting CORS errors, you might need to update the CORS settings in your API.
+      </div>
+      <button id="updateConfig">Update Configuration</button>
+      <button id="pingServer">Ping Server</button>
+    </div>
+    
+    <div class="card">
+      <h2>1. Test API Connection</h2>
+      <p>Click to test the connection to the API service:</p>
+      <button id="testHealthBtn">Test Health Endpoint</button>
+      <div id="healthStatus" class="status"></div>
+      <pre id="healthResult" class="result" style="display: none;"></pre>
+    </div>
+    
+    <div class="card">
+      <h2>2. Test Waitlist Submission</h2>
+      <p>Enter an email and submit to test the Google Sheets integration:</p>
+      <input type="email" id="testEmail" placeholder="test@example.com" />
+      <button id="testSubmitBtn">Test Submission</button>
+      <div id="submitStatus" class="status"></div>
+      <pre id="submitResult" class="result" style="display: none;"></pre>
+    </div>
+    
+    <div class="card">
+      <h2>Error Log</h2>
+      <div id="errorLog" class="log"></div>
+      <button id="clearLog">Clear Log</button>
+    </div>
+  </div>
+
+  <script>
+    // Error handling
+    const errorLog = document.getElementById('errorLog');
+    
+    function logError(error, context) {
+      const timestamp = new Date().toISOString();
+      const errorDetails = typeof error === 'object' ? 
+        (error.stack || `${error.name}: ${error.message}`) : 
+        String(error);
+      
+      const logEntry = document.createElement('div');
+      logEntry.innerHTML = `<strong>${timestamp}</strong> [${context}]<br>${errorDetails}`;
+      errorLog.appendChild(logEntry);
+      console.error(`[${context}]`, error);
+    }
+    
+    // Override the global error handler
+    window.onerror = function(message, source, lineno, colno, error) {
+      logError(error || message, `Global Error at ${source}:${lineno}:${colno}`);
+      return false;
+    };
+    
+    // Override Promise rejection handler
+    window.onunhandledrejection = function(event) {
+      logError(event.reason, 'Unhandled Promise Rejection');
+    };
+    
+    document.getElementById('clearLog').addEventListener('click', () => {
+      errorLog.innerHTML = '';
+    });
+    
+    // Dynamic configuration
+    let API_BASE_URL;
+    
+    function updateConfiguration() {
+      const serverIP = document.getElementById('serverIP').value.trim();
+      const apiPort = document.getElementById('apiPort').value.trim();
+      
+      if (!serverIP) {
+        alert('Please enter a valid server IP address');
+        return;
+      }
+      
+      API_BASE_URL = `http://${serverIP}:${apiPort}`;
+      
+      // Show the current configuration
+      const status = document.createElement('div');
+      status.className = 'status success';
+      status.textContent = `Configuration updated. API URL: ${API_BASE_URL}`;
+      status.style.marginTop = '10px';
+      
+      const existingStatus = document.querySelector('.config-section .status');
+      if (existingStatus) {
+        existingStatus.remove();
+      }
+      
+      document.querySelector('.config-section').appendChild(status);
+      
+      // Save in localStorage
+      try {
+        localStorage.setItem('apiServerIP', serverIP);
+        localStorage.setItem('apiServerPort', apiPort);
+      } catch (e) {
+        logError(e, 'localStorage save');
+      }
+    }
+    
+    // Load saved configuration
+    try {
+      const savedIP = localStorage.getItem('apiServerIP');
+      const savedPort = localStorage.getItem('apiServerPort');
+      
+      if (savedIP) document.getElementById('serverIP').value = savedIP;
+      if (savedPort) document.getElementById('apiPort').value = savedPort;
+    } catch (e) {
+      logError(e, 'localStorage load');
+    }
+    
+    // Initialize configuration
+    updateConfiguration();
+    
+    // Update button handler
+    document.getElementById('updateConfig').addEventListener('click', updateConfiguration);
+    
+    // Simple ping to check server availability
+    document.getElementById('pingServer').addEventListener('click', async () => {
+      try {
+        const status = document.createElement('div');
+        status.className = 'status loading';
+        status.textContent = `Pinging ${API_BASE_URL}...`;
+        
+        const existingStatus = document.querySelector('.config-section .status');
+        if (existingStatus) {
+          existingStatus.remove();
+        }
+        
+        document.querySelector('.config-section').appendChild(status);
+        
+        // Use fetch with a short timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const startTime = performance.now();
+        const response = await fetch(`${API_BASE_URL}`, {
+          method: 'HEAD',
+          signal: controller.signal,
+          cache: 'no-store',
+          mode: 'no-cors' // This allows us to ping without CORS issues
+        });
+        const endTime = performance.now();
+        
+        clearTimeout(timeoutId);
+        
+        status.className = 'status success';
+        status.textContent = `Server is reachable! Response time: ${Math.round(endTime - startTime)}ms`;
+      } catch (error) {
+        const status = document.createElement('div');
+        status.className = 'status error';
+        status.textContent = `Unable to reach server: ${error.message}`;
+        
+        const existingStatus = document.querySelector('.config-section .status');
+        if (existingStatus) {
+          existingStatus.remove();
+        }
+        
+        document.querySelector('.config-section').appendChild(status);
+        logError(error, 'Server Ping');
+      }
+    });
+    
+    // Get the client's IP if possible
+    fetch('https://api.ipify.org?format=json')
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('deviceIP').textContent = data.ip;
+      })
+      .catch(error => {
+        document.getElementById('deviceIP').textContent = 'Unable to detect';
+        logError(error, 'IP Detection');
+      });
+    
+    // Helper for showing status
+    function showStatus(elementId, type, message) {
+      const element = document.getElementById(elementId);
+      element.className = `status ${type}`;
+      element.textContent = message;
+      element.style.display = 'block';
+    }
+    
+    // Helper for showing result
+    function showResult(elementId, data) {
+      const element = document.getElementById(elementId);
+      element.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      element.style.display = 'block';
+    }
+    
+    // Test health endpoint
+    document.getElementById('testHealthBtn').addEventListener('click', async () => {
+      const healthStatus = document.getElementById('healthStatus');
+      const healthResult = document.getElementById('healthResult');
+      const btn = document.getElementById('testHealthBtn');
+      
+      try {
+        btn.disabled = true;
+        showStatus('healthStatus', 'loading', 'Testing connection...');
+        healthResult.style.display = 'none';
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const healthUrl = `${API_BASE_URL}/api/health`;
+        
+        console.log('Testing health endpoint:', healthUrl);
+        
+        const response = await fetch(healthUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': navigator.userAgent
+          },
+          // Prevent caching
+          cache: 'no-store'
+        });
+        
+        clearTimeout(timeoutId);
+        
+        let responseData;
+        try {
+          responseData = await response.json();
+        } catch (e) {
+          responseData = { parseError: e.message, text: await response.text() };
+          logError(e, 'Health JSON Parse');
+        }
+        
+        if (response.ok) {
+          showStatus('healthStatus', 'success', 'Connection successful! API is accessible.');
+          showResult('healthResult', responseData);
+        } else {
+          showStatus('healthStatus', 'error', `Error: Server returned ${response.status}`);
+          showResult('healthResult', responseData);
+        }
+      } catch (error) {
+        console.error('API connection test failed:', error);
+        showStatus('healthStatus', 'error', `Connection failed: ${error.message}`);
+        logError(error, 'Health Test');
+        
+        showResult('healthResult', {
+          error: error.message,
+          name: error.name,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        });
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    // Test submit endpoint
+    document.getElementById('testSubmitBtn').addEventListener('click', async () => {
+      const submitStatus = document.getElementById('submitStatus');
+      const submitResult = document.getElementById('submitResult');
+      const btn = document.getElementById('testSubmitBtn');
+      const email = document.getElementById('testEmail').value;
+      
+      if (!email) {
+        showStatus('submitStatus', 'error', 'Please enter an email address');
+        return;
+      }
+      
+      try {
+        btn.disabled = true;
+        showStatus('submitStatus', 'loading', 'Testing submission...');
+        submitResult.style.display = 'none';
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
+        const submissionUrl = `${API_BASE_URL}/api/join-waitlist`;
+        
+        console.log('Testing submission endpoint:', submissionUrl);
+        console.log('Payload:', { email });
+        
+        const response = await fetch(submissionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ email }),
+          signal: controller.signal,
+          credentials: 'omit', // Avoid cookies/credentials for simpler CORS
+          cache: 'no-store' // Prevent caching issues
+        });
+        
+        clearTimeout(timeoutId);
+        
+        let responseData;
+        try {
+          responseData = await response.json();
+        } catch (e) {
+          responseData = { parseError: e.message, text: await response.text() };
+          logError(e, 'JSON Parse');
+        }
+        
+        if (response.ok) {
+          showStatus('submitStatus', 'success', 'Submission successful! Google Sheets connected.');
+          showResult('submitResult', responseData);
+        } else {
+          showStatus('submitStatus', 'error', `Error: Server returned ${response.status}`);
+          showResult('submitResult', responseData);
+        }
+      } catch (error) {
+        console.error('API submission test failed:', error);
+        showStatus('submitStatus', 'error', `Submission failed: ${error.message}`);
+        logError(error, 'Submission Test');
+        
+        showResult('submitResult', {
+          error: error.message,
+          name: error.name,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Fallback to GET method if we have a CORS or network error
+        if (error.name === 'TypeError' || error.message.includes('NetworkError') || error.message.includes('CORS')) {
+          try {
+            showStatus('submitStatus', 'loading', 'Trying GET fallback method...');
+            
+            const fallbackUrl = `${API_BASE_URL}/api/join-waitlist?email=${encodeURIComponent(email)}&direct=false`;
+            console.log('Trying fallback GET method:', fallbackUrl);
+            
+            const fallbackResponse = await fetch(fallbackUrl, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+              },
+              credentials: 'omit',
+              cache: 'no-store'
+            });
+            
+            let fallbackData;
+            try {
+              fallbackData = await fallbackResponse.json();
+            } catch (e) {
+              fallbackData = { parseError: e.message, text: await fallbackResponse.text() };
+              logError(e, 'Fallback JSON Parse');
+            }
+            
+            if (fallbackResponse.ok) {
+              showStatus('submitStatus', 'success', 'Fallback submission successful!');
+              showResult('submitResult', fallbackData);
+            } else {
+              showStatus('submitStatus', 'error', `Fallback error: ${fallbackResponse.status}`);
+              showResult('submitResult', fallbackData);
+            }
+          } catch (fallbackError) {
+            logError(fallbackError, 'Fallback Submission');
+            showStatus('submitStatus', 'error', `Both submission methods failed: ${fallbackError.message}`);
+            
+            // Last resort: Try form submission
+            const formFallbackUrl = `${API_BASE_URL}/api/join-waitlist?email=${encodeURIComponent(email)}&direct=true`;
+            showStatus('submitStatus', 'loading', 'Trying form fallback method...');
+            
+            const formSubmitLink = document.createElement('a');
+            formSubmitLink.href = formFallbackUrl;
+            formSubmitLink.target = '_blank';
+            formSubmitLink.textContent = 'Try opening form submission (click here)';
+            formSubmitLink.style.display = 'block';
+            formSubmitLink.style.marginTop = '10px';
+            formSubmitLink.style.textDecoration = 'underline';
+            formSubmitLink.style.color = '#c82e2e';
+            
+            submitStatus.appendChild(document.createElement('br'));
+            submitStatus.appendChild(formSubmitLink);
+          }
+        }
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html> 

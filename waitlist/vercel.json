@@ -6,13 +6,22 @@
   "functions": {
     "api/*.js": {
       "memory": 1024,
-      "maxDuration": 10
+      "maxDuration": 15
     }
   },
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/index.js"
+      "dest": "/api/index.js",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+      }
+    },
+    {
+      "src": "/test-mobile-connection.html",
+      "dest": "/test-mobile-connection.html"
     },
     {
       "src": "/(.*)",

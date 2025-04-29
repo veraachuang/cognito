@@ -18,7 +18,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Length', 'Content-Type'],
   credentials: true,
-  maxAge: 86400 // Cache preflight requests for 24 hours
+  maxAge: 86400, // Cache preflight requests for 24 hours
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 // Additional middleware to ensure CORS headers are set
@@ -28,9 +30,37 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
   res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
   
-  // Handling preflight OPTIONS requests
+  // Handling preflight OPTIONS requests more aggressively
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    console.log('Handling OPTIONS preflight request');
+    return res.status(204).set({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept, Origin',
+      'Access-Control-Max-Age': '86400',
+      'Content-Length': '0'
+    }).end();
+  }
+  
+  next();
+});
+
+// Implement a special handler for redirection issues
+app.use((req, res, next) => {
+  // If the host is trycognito.app without www, redirect with CORS headers
+  const host = req.headers.host || '';
+  if (host === 'trycognito.app') {
+    const newUrl = `https://www.trycognito.app${req.originalUrl}`;
+    console.log(`Redirecting ${req.method} request from ${host} to www subdomain: ${newUrl}`);
+    
+    // Set CORS headers before redirecting
+    res.set({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept, Origin'
+    });
+    
+    return res.redirect(308, newUrl);
   }
   
   next();

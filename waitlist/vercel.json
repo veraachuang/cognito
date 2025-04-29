@@ -23,6 +23,35 @@
       }
     },
     {
+      "src": "/api/(.*)",
+      "status": 308,
+      "headers": {
+        "Location": "https://www.trycognito.app/api/$1",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Origin, Authorization"
+      },
+      "has": [
+        {
+          "type": "host",
+          "value": "trycognito.app"
+        }
+      ]
+    },
+    {
+      "src": "/(.*)",
+      "status": 308,
+      "headers": {
+        "Location": "https://www.trycognito.app/$1"
+      },
+      "has": [
+        {
+          "type": "host",
+          "value": "trycognito.app"
+        }
+      ]
+    },
+    {
       "src": "/test-mobile-connection.html",
       "dest": "/test-mobile-connection.html"
     },

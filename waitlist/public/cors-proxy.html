@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CORS Proxy Helper</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    // This page helps handle CORS issues by acting as a proxy for API requests
+
+    // Listen for messages from parent window
+    window.addEventListener('message', async function(event) {
+      try {
+        if (!event.data || !event.data.type) return;
+
+        // Only handle specific message types
+        if (event.data.type === 'proxy-request') {
+          const { url, method, headers, body } = event.data;
+          
+          console.log('CORS Proxy received request:', { url, method });
+          
+          // Make the fetch request
+          const options = {
+            method: method || 'GET',
+            headers: headers || {},
+            credentials: 'omit'
+          };
+          
+          // Only add body for POST/PUT
+          if (['POST', 'PUT'].includes(method) && body) {
+            options.body = typeof body === 'string' ? body : JSON.stringify(body);
+          }
+          
+          // Execute the request
+          const response = await fetch(url, options);
+          let data;
+          
+          // Try to parse JSON response
+          try {
+            data = await response.json();
+          } catch (e) {
+            data = await response.text();
+          }
+          
+          // Send the response back to the parent window
+          event.source.postMessage({
+            type: 'proxy-response',
+            requestId: event.data.requestId,
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            data: data
+          }, '*');
+        }
+      } catch (error) {
+        // Return any errors
+        console.error('CORS Proxy error:', error);
+        event.source.postMessage({
+          type: 'proxy-error',
+          requestId: event.data.requestId,
+          error: error.message
+        }, '*');
+      }
+    });
+    
+    // Notify parent that we're ready
+    window.addEventListener('load', function() {
+      window.parent.postMessage({ type: 'proxy-ready' }, '*');
+    });
+  </script>
+</head>
+<body>
+  <div style="display: none;">CORS Proxy Helper Frame</div>
+</body>
+</html> 

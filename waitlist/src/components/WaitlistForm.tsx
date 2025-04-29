@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Send, Check, AlertCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 // Use an environment variable with fallback to both production and local endpoints
+// Add explicit mobile detection and debug info
 const API_URL = import.meta.env.VITE_API_URL || window.location.origin || 'http://localhost:3001';
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 const WaitlistForm = () => {
   const [email, setEmail] = useState('');
@@ -12,6 +14,24 @@ const WaitlistForm = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [connectionError, setConnectionError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [debugInfo, setDebugInfo] = useState({
+    apiUrl: API_URL,
+    isMobile: isMobile
+  });
+
+  // Log debug info on component mount
+  useEffect(() => {
+    console.log('WaitlistForm mounted', { 
+      apiUrl: API_URL, 
+      isMobile: isMobile,
+      userAgent: navigator.userAgent
+    });
+    
+    // Check API connection on initial load for mobile
+    if (isMobile) {
+      checkApiConnection();
+    }
+  }, []);
 
   // Check API connection on component mount and when retry is attempted
   useEffect(() => {
@@ -28,28 +48,56 @@ const WaitlistForm = () => {
       
       // Try a simple HEAD request to check if the API is reachable
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5-second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8-second timeout (increased for mobile)
+      
+      // Update debug info
+      setDebugInfo(prev => ({
+        ...prev,
+        checkingEndpoint: `${API_URL}/api/join-waitlist`,
+        checkStartTime: new Date().toISOString()
+      }));
       
       const response = await fetch(`${API_URL}/api/join-waitlist`, {
         method: 'HEAD',
-        signal: controller.signal
+        signal: controller.signal,
+        headers: {
+          'Accept': '*/*',
+          'User-Agent': navigator.userAgent
+        }
       });
       
       clearTimeout(timeoutId);
+      
+      // Update debug info
+      setDebugInfo(prev => ({
+        ...prev,
+        connectionStatus: response.status,
+        connectionOk: response.ok,
+        checkEndTime: new Date().toISOString()
+      }));
       
       if (response.ok) {
         setConnectionError(false);
       } else {
         setConnectionError(true);
-        setErrorMessage('Server is reachable but returned an error. Please try again.');
+        setErrorMessage(`Server returned ${response.status}. Please try again.`);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('API connection check failed:', error);
       setConnectionError(true);
+      
+      // Update debug info with error details
+      setDebugInfo(prev => ({
+        ...prev,
+        connectionError: error instanceof Error ? error.message : String(error),
+        errorName: error instanceof Error ? error.name : 'Unknown',
+        checkEndTime: new Date().toISOString()
+      }));
+      
       setErrorMessage(
         error instanceof Error && error.name === 'AbortError'
           ? 'Connection timed out. Please check your internet connection.'
-          : 'Could not connect to server. Please try again later.'
+          : `Connection error: ${error instanceof Error ? error.message : String(error)}. Please try again later.`
       );
     } finally {
       setIsLoading(false);
@@ -83,34 +131,74 @@ const WaitlistForm = () => {
     
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10-second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second timeout (increased for mobile)
+      
+      // Update debug info
+      setDebugInfo(prev => ({
+        ...prev,
+        submittingTo: `${API_URL}/api/join-waitlist`,
+        submissionStartTime: new Date().toISOString(),
+        emailLength: email.length
+      }));
       
       const response = await fetch(`${API_URL}/api/join-waitlist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': navigator.userAgent
         },
         body: JSON.stringify({ email }),
-        signal: controller.signal
+        signal: controller.signal,
+        credentials: 'omit' // Avoid cookies/credentials for simpler CORS
       });
       
       clearTimeout(timeoutId);
       
-      let data;
+      // Update debug info
+      setDebugInfo(prev => ({
+        ...prev,
+        submissionStatus: response.status,
+        submissionOk: response.ok,
+        submissionEndTime: new Date().toISOString()
+      }));
+      
+      let data: { error?: string; message?: string } = {};
       try {
         data = await response.json();
-      } catch (e) {
+        
+        // Update debug info with response data
+        setDebugInfo(prev => ({
+          ...prev,
+          responseData: JSON.stringify(data).substring(0, 100)
+        }));
+      } catch (e: unknown) {
+        console.error('Error parsing response:', e);
         data = { error: 'Could not parse server response' };
+        
+        // Update debug info with parsing error
+        setDebugInfo(prev => ({
+          ...prev,
+          responseParseError: e instanceof Error ? e.message : String(e)
+        }));
       }
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to join waitlist');
+        throw new Error(data.error || `Server error: ${response.status}`);
       }
       
       setIsSubmitted(true);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error joining waitlist:', error);
       setIsError(true);
+      
+      // Update debug info with error details
+      setDebugInfo(prev => ({
+        ...prev,
+        submissionError: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.name : 'Unknown',
+        submissionEndTime: new Date().toISOString()
+      }));
       
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
@@ -136,6 +224,33 @@ const WaitlistForm = () => {
     setErrorMessage('');
   };
 
+  // Try a direct API fallback for severe connection issues
+  const handleDirectSubmit = async () => {
+    if (!email || !validateEmail(email)) {
+      setIsError(true);
+      setErrorMessage('Please enter a valid email address');
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      // Fallback to a more direct method for severe connection issues
+      const encodedEmail = encodeURIComponent(email);
+      const fallbackUrl = `${API_URL}/api/join-waitlist?email=${encodedEmail}&direct=true`;
+      window.open(fallbackUrl, '_blank');
+      
+      // Assume success after opening the window
+      setIsSubmitted(true);
+    } catch (error: unknown) {
+      console.error('Direct submission error:', error);
+      setIsError(true);
+      setErrorMessage('Could not complete request. Please try again later.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-md">
       {isSubmitted ? (
@@ -157,6 +272,7 @@ const WaitlistForm = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isLoading}
+              autoComplete="email"
             />
             <button
               type="submit"
@@ -186,15 +302,41 @@ const WaitlistForm = () => {
                 <p className="font-medium">{connectionError ? 'Connection Error' : 'Error'}</p>
                 <p className="mt-1">{errorMessage}</p>
                 {connectionError && (
-                  <button 
-                    type="button" 
-                    onClick={handleRetry}
-                    className="mt-2 text-red-700 bg-red-100 px-3 py-1 rounded-md hover:bg-red-200 transition-colors flex items-center gap-1 text-xs"
-                  >
-                    <RefreshCw className="h-3 w-3" /> Try Again
-                  </button>
+                  <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                    <button 
+                      type="button" 
+                      onClick={handleRetry}
+                      className="text-red-700 bg-red-100 px-3 py-1 rounded-md hover:bg-red-200 transition-colors flex items-center justify-center gap-1 text-xs"
+                    >
+                      <RefreshCw className="h-3 w-3" /> Try Again
+                    </button>
+                    
+                    {isMobile && (
+                      <button 
+                        type="button" 
+                        onClick={handleDirectSubmit}
+                        className="text-red-700 bg-red-100 px-3 py-1 rounded-md hover:bg-red-200 transition-colors flex items-center justify-center gap-1 text-xs"
+                      >
+                        <Send className="h-3 w-3" /> Direct Submit
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
+            </div>
+          )}
+          
+          {/* Show connection info on mobile */}
+          {isMobile && connectionError && (
+            <div className="mt-3 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-200">
+              <details>
+                <summary className="cursor-pointer">Connection Details</summary>
+                <div className="mt-2 overflow-x-auto">
+                  <pre className="text-[10px] whitespace-pre-wrap">
+                    {JSON.stringify(debugInfo, null, 2)}
+                  </pre>
+                </div>
+              </details>
             </div>
           )}
         </form>

@@ -1,9 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Send, Check, AlertCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
-// Use an environment variable with fallback to both production and local endpoints
-// Add explicit mobile detection and debug info
-const API_URL = import.meta.env.VITE_API_URL || window.location.origin || 'http://localhost:3001';
+// Use an environment variable with fallback to production URL
+// Handle localhost better for mobile devices
+const getApiUrl = () => {
+  // Environment variable always takes precedence
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  // On mobile devices, always use the production URL
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  if (isMobile) {
+    return 'https://trycognito.app';
+  }
+  
+  // Otherwise use window.location.origin with fallback
+  const origin = window.location.origin;
+  return origin.includes('localhost') ? 'http://localhost:3001' : origin;
+};
+
+const API_URL = getApiUrl();
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 const WaitlistForm = () => {
@@ -14,10 +31,14 @@ const WaitlistForm = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [connectionError, setConnectionError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  // Keep debug info but don't show by default
   const [debugInfo, setDebugInfo] = useState({
     apiUrl: API_URL,
-    isMobile: isMobile
+    isMobile: isMobile,
+    timestamp: new Date().toISOString()
   });
+  // Debugging mode - set to false by default
+  const [showDebug, setShowDebug] = useState(false);
 
   // Log debug info on component mount
   useEffect(() => {
@@ -27,18 +48,9 @@ const WaitlistForm = () => {
       userAgent: navigator.userAgent
     });
     
-    // Check API connection on initial load for mobile
-    if (isMobile) {
-      checkApiConnection();
-    }
+    // Check API connection on initial load in a less aggressive way
+    checkApiConnection();
   }, []);
-
-  // Check API connection on component mount and when retry is attempted
-  useEffect(() => {
-    if (retryCount > 0) {
-      checkApiConnection();
-    }
-  }, [retryCount]);
 
   // Function to check API connection
   const checkApiConnection = async () => {
@@ -46,22 +58,21 @@ const WaitlistForm = () => {
       setIsLoading(true);
       setConnectionError(false);
       
-      // Try a simple HEAD request to check if the API is reachable
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8-second timeout (increased for mobile)
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10-second timeout
       
-      // Update debug info
       setDebugInfo(prev => ({
         ...prev,
-        checkingEndpoint: `${API_URL}/api/join-waitlist`,
+        checkingEndpoint: `${API_URL}/api/health`,
         checkStartTime: new Date().toISOString()
       }));
       
-      const response = await fetch(`${API_URL}/api/join-waitlist`, {
-        method: 'HEAD',
+      // Use health endpoint rather than join-waitlist for connection check
+      const response = await fetch(`${API_URL}/api/health`, {
+        method: 'GET',
         signal: controller.signal,
         headers: {
-          'Accept': '*/*',
+          'Accept': 'application/json',
           'User-Agent': navigator.userAgent
         }
       });
@@ -79,12 +90,14 @@ const WaitlistForm = () => {
       if (response.ok) {
         setConnectionError(false);
       } else {
-        setConnectionError(true);
-        setErrorMessage(`Server returned ${response.status}. Please try again.`);
+        console.warn('API check returned non-OK status:', response.status);
+        // Don't set error unless explicitly necessary
+        // setConnectionError(true);
       }
     } catch (error: unknown) {
       console.error('API connection check failed:', error);
-      setConnectionError(true);
+      // Only show error if we need to
+      // setConnectionError(true);
       
       // Update debug info with error details
       setDebugInfo(prev => ({
@@ -93,12 +106,6 @@ const WaitlistForm = () => {
         errorName: error instanceof Error ? error.name : 'Unknown',
         checkEndTime: new Date().toISOString()
       }));
-      
-      setErrorMessage(
-        error instanceof Error && error.name === 'AbortError'
-          ? 'Connection timed out. Please check your internet connection.'
-          : `Connection error: ${error instanceof Error ? error.message : String(error)}. Please try again later.`
-      );
     } finally {
       setIsLoading(false);
     }
@@ -130,23 +137,71 @@ const WaitlistForm = () => {
     setConnectionError(false);
     
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second timeout (increased for mobile)
+      // Try multiple submission methods in sequence for better reliability
+      let isSuccess = false;
+      const methods = ['json', 'direct'];
       
-      // Update debug info
+      for (const method of methods) {
+        try {
+          if (method === 'json') {
+            isSuccess = await submitViaJson();
+          } else if (method === 'direct') {
+            isSuccess = await submitViaDirect();
+          }
+          
+          if (isSuccess) break;
+        } catch (err) {
+          console.warn(`Submission method ${method} failed, trying next method:`, err);
+          // Continue to next method on failure
+        }
+      }
+      
+      if (!isSuccess) {
+        throw new Error("All submission methods failed");
+      }
+      
+      // If we made it here, we succeeded
+      setIsSubmitted(true);
+    } catch (error: unknown) {
+      console.error('All join waitlist attempts failed:', error);
+      setIsError(true);
+      setConnectionError(true);
+      
+      // Update debug info with error details
       setDebugInfo(prev => ({
         ...prev,
-        submittingTo: `${API_URL}/api/join-waitlist`,
-        submissionStartTime: new Date().toISOString(),
-        emailLength: email.length
+        finalError: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.name : 'Unknown',
+        submissionEndTime: new Date().toISOString()
       }));
       
+      if (error instanceof Error) {
+        setErrorMessage('Please try again. If the issue persists, please try again later.');
+      } else {
+        setErrorMessage('Please try again later.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // JSON submission method
+  const submitViaJson = async (): Promise<boolean> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    setDebugInfo(prev => ({
+      ...prev,
+      submittingJsonTo: `${API_URL}/api/join-waitlist`,
+      jsonSubmitStartTime: new Date().toISOString()
+    }));
+    
+    try {
       const response = await fetch(`${API_URL}/api/join-waitlist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'User-Agent': navigator.userAgent
         },
         body: JSON.stringify({ email }),
         signal: controller.signal,
@@ -155,66 +210,60 @@ const WaitlistForm = () => {
       
       clearTimeout(timeoutId);
       
-      // Update debug info
       setDebugInfo(prev => ({
         ...prev,
-        submissionStatus: response.status,
-        submissionOk: response.ok,
-        submissionEndTime: new Date().toISOString()
+        jsonSubmitStatus: response.status,
+        jsonSubmitOk: response.ok,
+        jsonSubmitEndTime: new Date().toISOString()
       }));
-      
-      let data: { error?: string; message?: string } = {};
-      try {
-        data = await response.json();
-        
-        // Update debug info with response data
-        setDebugInfo(prev => ({
-          ...prev,
-          responseData: JSON.stringify(data).substring(0, 100)
-        }));
-      } catch (e: unknown) {
-        console.error('Error parsing response:', e);
-        data = { error: 'Could not parse server response' };
-        
-        // Update debug info with parsing error
-        setDebugInfo(prev => ({
-          ...prev,
-          responseParseError: e instanceof Error ? e.message : String(e)
-        }));
-      }
       
       if (!response.ok) {
-        throw new Error(data.error || `Server error: ${response.status}`);
+        throw new Error(`Server returned ${response.status}`);
       }
       
-      setIsSubmitted(true);
-    } catch (error: unknown) {
-      console.error('Error joining waitlist:', error);
-      setIsError(true);
-      
-      // Update debug info with error details
+      return true;
+    } catch (error) {
       setDebugInfo(prev => ({
         ...prev,
-        submissionError: error instanceof Error ? error.message : String(error),
-        errorType: error instanceof Error ? error.name : 'Unknown',
-        submissionEndTime: new Date().toISOString()
+        jsonSubmitError: error instanceof Error ? error.message : String(error),
+        jsonSubmitEndTime: new Date().toISOString()
+      }));
+      throw error;
+    }
+  };
+  
+  // Direct submission method via opening URL (as fallback)
+  const submitViaDirect = async (): Promise<boolean> => {
+    setDebugInfo(prev => ({
+      ...prev,
+      directSubmitStartTime: new Date().toISOString()
+    }));
+    
+    try {
+      const encodedEmail = encodeURIComponent(email);
+      const fallbackUrl = `${API_URL}/api/join-waitlist?email=${encodedEmail}&direct=true`;
+      
+      // For mobile, open in the same tab for better experience
+      if (isMobile) {
+        window.location.href = fallbackUrl;
+      } else {
+        window.open(fallbackUrl, '_blank');
+      }
+      
+      setDebugInfo(prev => ({
+        ...prev,
+        directSubmitOk: true,
+        directSubmitEndTime: new Date().toISOString()
       }));
       
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          setConnectionError(true);
-          setErrorMessage('Request timed out. Please check your connection and try again.');
-        } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-          setConnectionError(true);
-          setErrorMessage('Network error. Please check your connection and try again.');
-        } else {
-          setErrorMessage(error.message);
-        }
-      } else {
-        setErrorMessage('Failed to join waitlist. Please try again.');
-      }
-    } finally {
-      setIsLoading(false);
+      return true;
+    } catch (error) {
+      setDebugInfo(prev => ({
+        ...prev,
+        directSubmitError: error instanceof Error ? error.message : String(error),
+        directSubmitEndTime: new Date().toISOString()
+      }));
+      throw error;
     }
   };
 
@@ -222,33 +271,12 @@ const WaitlistForm = () => {
     setRetryCount(prev => prev + 1);
     setIsError(false);
     setErrorMessage('');
+    checkApiConnection();
   };
 
-  // Try a direct API fallback for severe connection issues
-  const handleDirectSubmit = async () => {
-    if (!email || !validateEmail(email)) {
-      setIsError(true);
-      setErrorMessage('Please enter a valid email address');
-      return;
-    }
-    
-    try {
-      setIsLoading(true);
-      
-      // Fallback to a more direct method for severe connection issues
-      const encodedEmail = encodeURIComponent(email);
-      const fallbackUrl = `${API_URL}/api/join-waitlist?email=${encodedEmail}&direct=true`;
-      window.open(fallbackUrl, '_blank');
-      
-      // Assume success after opening the window
-      setIsSubmitted(true);
-    } catch (error: unknown) {
-      console.error('Direct submission error:', error);
-      setIsError(true);
-      setErrorMessage('Could not complete request. Please try again later.');
-    } finally {
-      setIsLoading(false);
-    }
+  // Toggle debug info display
+  const toggleDebug = () => {
+    setShowDebug(prev => !prev);
   };
 
   return (
@@ -293,43 +321,26 @@ const WaitlistForm = () => {
           
           {isError && (
             <div className="mt-3 text-red-600 text-sm flex items-start gap-2 bg-red-50 p-3 rounded-md border border-red-100">
-              {connectionError ? (
-                <WifiOff className="h-4 w-4 flex-shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-              )}
+              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium">{connectionError ? 'Connection Error' : 'Error'}</p>
                 <p className="mt-1">{errorMessage}</p>
-                {connectionError && (
-                  <div className="mt-2 flex flex-col sm:flex-row gap-2">
-                    <button 
-                      type="button" 
-                      onClick={handleRetry}
-                      className="text-red-700 bg-red-100 px-3 py-1 rounded-md hover:bg-red-200 transition-colors flex items-center justify-center gap-1 text-xs"
-                    >
-                      <RefreshCw className="h-3 w-3" /> Try Again
-                    </button>
-                    
-                    {isMobile && (
-                      <button 
-                        type="button" 
-                        onClick={handleDirectSubmit}
-                        className="text-red-700 bg-red-100 px-3 py-1 rounded-md hover:bg-red-200 transition-colors flex items-center justify-center gap-1 text-xs"
-                      >
-                        <Send className="h-3 w-3" /> Direct Submit
-                      </button>
-                    )}
-                  </div>
-                )}
+                <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                  <button 
+                    type="button" 
+                    onClick={handleRetry}
+                    className="text-red-700 bg-red-100 px-3 py-1 rounded-md hover:bg-red-200 transition-colors flex items-center justify-center gap-1 text-xs"
+                  >
+                    <RefreshCw className="h-3 w-3" /> Try Again
+                  </button>
+                </div>
               </div>
             </div>
           )}
           
-          {/* Show connection info on mobile */}
-          {isMobile && connectionError && (
+          {/* Only show debug info if explicitly enabled */}
+          {showDebug && (
             <div className="mt-3 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-200">
-              <details>
+              <details open>
                 <summary className="cursor-pointer">Connection Details</summary>
                 <div className="mt-2 overflow-x-auto">
                   <pre className="text-[10px] whitespace-pre-wrap">
@@ -339,6 +350,28 @@ const WaitlistForm = () => {
               </details>
             </div>
           )}
+          
+          {/* Hidden debug toggle - tap 5 times on the bottom of the form */}
+          <div 
+            className="h-4 w-full mt-2 opacity-0" 
+            onClick={() => {
+              if (!showDebug) {
+                const now = Date.now();
+                const clicks = (window as any)._debugClicks || [];
+                clicks.push(now);
+                // Only keep clicks from the last 3 seconds
+                const recentClicks = clicks.filter((t: number) => now - t < 3000);
+                (window as any)._debugClicks = recentClicks;
+                
+                if (recentClicks.length >= 5) {
+                  toggleDebug();
+                  (window as any)._debugClicks = [];
+                }
+              } else {
+                toggleDebug();
+              }
+            }}
+          ></div>
         </form>
       )}
     </div>

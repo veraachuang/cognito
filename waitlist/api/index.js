@@ -57,6 +57,11 @@ const setupGoogleSheets = () => {
   return auth;
 };
 
+// Basic health endpoint - mobile-friendly and no auth required
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Helper function for adding to the waitlist
 const addToWaitlist = async (email) => {
   if (!email) {
@@ -111,9 +116,13 @@ app.post('/api/join-waitlist', async (req, res) => {
 // GET route for direct fallback on mobile (supports URL params)
 app.get('/api/join-waitlist', async (req, res) => {
   // If direct parameter is not set, return a simple status for connection checks
-  if (!req.query.direct) {
-    // This is just a connection check
-    return res.status(200).json({ status: 'ok' });
+  if (!req.query.direct && !req.query.email) {
+    // This is just a connection check - send a 200 OK response
+    return res.status(200).json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      message: 'API is healthy and accessible'
+    });
   }
   
   try {
@@ -166,6 +175,15 @@ app.get('/api/join-waitlist', async (req, res) => {
             body { font-family: system-ui, sans-serif; padding: 20px; max-width: 500px; margin: 0 auto; }
             h1 { color: #c82e2e; }
             .success { background: #e5f5e5; border: 1px solid #c3e6c3; padding: 15px; border-radius: 4px; }
+            a.button { 
+              display: inline-block; 
+              background: #c82e2e; 
+              color: white; 
+              text-decoration: none;
+              padding: 10px 20px; 
+              border-radius: 4px;
+              margin-top: 15px; 
+            }
           </style>
         </head>
         <body>
@@ -173,6 +191,7 @@ app.get('/api/join-waitlist', async (req, res) => {
           <div class="success">
             <p>You've been added to the Cognito waitlist. We'll notify you when we're ready!</p>
             <p>Email: ${email}</p>
+            <a href="https://trycognito.app" class="button">Return to Home</a>
           </div>
         </body>
         </html>
@@ -196,13 +215,22 @@ app.get('/api/join-waitlist', async (req, res) => {
             body { font-family: system-ui, sans-serif; padding: 20px; max-width: 500px; margin: 0 auto; }
             h1 { color: #c82e2e; }
             .error { background: #ffe6e6; border: 1px solid #ffc3c3; padding: 15px; border-radius: 4px; }
+            a.button { 
+              display: inline-block; 
+              background: #c82e2e; 
+              color: white; 
+              text-decoration: none;
+              padding: 10px 20px; 
+              border-radius: 4px;
+              margin-top: 15px; 
+            }
           </style>
         </head>
         <body>
           <h1>Error</h1>
           <div class="error">
             <p>${error.message || 'Failed to add to waitlist. Please try again later.'}</p>
-            <a href="/api/join-waitlist?direct=true">Try Again</a>
+            <a href="/api/join-waitlist?direct=true" class="button">Try Again</a>
           </div>
         </body>
         </html>
@@ -214,4 +242,4 @@ app.get('/api/join-waitlist', async (req, res) => {
 });
 
 // Export for serverless function
-module.exports = app; 
+module.exports = app;

@@ -137,33 +137,16 @@ const WaitlistForm = () => {
     setConnectionError(false);
     
     try {
-      // Try multiple submission methods in sequence for better reliability
-      let isSuccess = false;
-      const methods = ['json', 'direct'];
+      // Only use JSON method directly - no redirects
+      const success = await submitViaJson();
       
-      for (const method of methods) {
-        try {
-          if (method === 'json') {
-            isSuccess = await submitViaJson();
-          } else if (method === 'direct') {
-            isSuccess = await submitViaDirect();
-          }
-          
-          if (isSuccess) break;
-        } catch (err) {
-          console.warn(`Submission method ${method} failed, trying next method:`, err);
-          // Continue to next method on failure
-        }
+      if (success) {
+        setIsSubmitted(true);
+      } else {
+        throw new Error("Failed to submit");
       }
-      
-      if (!isSuccess) {
-        throw new Error("All submission methods failed");
-      }
-      
-      // If we made it here, we succeeded
-      setIsSubmitted(true);
     } catch (error: unknown) {
-      console.error('All join waitlist attempts failed:', error);
+      console.error('Failed to submit email:', error);
       setIsError(true);
       setConnectionError(true);
       
@@ -197,7 +180,12 @@ const WaitlistForm = () => {
     }));
     
     try {
-      const response = await fetch(`${API_URL}/api/join-waitlist`, {
+      // For mobile devices, ensure we're using the production URL
+      const submissionUrl = isMobile ? 
+        'https://trycognito.app/api/join-waitlist' : 
+        `${API_URL}/api/join-waitlist`;
+        
+      const response = await fetch(submissionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -231,42 +219,8 @@ const WaitlistForm = () => {
       throw error;
     }
   };
-  
-  // Direct submission method via opening URL (as fallback)
-  const submitViaDirect = async (): Promise<boolean> => {
-    setDebugInfo(prev => ({
-      ...prev,
-      directSubmitStartTime: new Date().toISOString()
-    }));
-    
-    try {
-      const encodedEmail = encodeURIComponent(email);
-      const fallbackUrl = `${API_URL}/api/join-waitlist?email=${encodedEmail}&direct=true`;
-      
-      // For mobile, open in the same tab for better experience
-      if (isMobile) {
-        window.location.href = fallbackUrl;
-      } else {
-        window.open(fallbackUrl, '_blank');
-      }
-      
-      setDebugInfo(prev => ({
-        ...prev,
-        directSubmitOk: true,
-        directSubmitEndTime: new Date().toISOString()
-      }));
-      
-      return true;
-    } catch (error) {
-      setDebugInfo(prev => ({
-        ...prev,
-        directSubmitError: error instanceof Error ? error.message : String(error),
-        directSubmitEndTime: new Date().toISOString()
-      }));
-      throw error;
-    }
-  };
 
+  // Manual debug mode toggle
   const handleRetry = () => {
     setRetryCount(prev => prev + 1);
     setIsError(false);

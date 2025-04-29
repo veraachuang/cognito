@@ -9,10 +9,10 @@ const getApiUrl = () => {
     return import.meta.env.VITE_API_URL;
   }
 
-  // On mobile devices, always use the production URL
+  // On mobile devices, always use the production URL with www subdomain
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   if (isMobile) {
-    return 'https://trycognito.app';
+    return 'https://www.trycognito.app';
   }
   
   // Otherwise use window.location.origin with fallback
@@ -71,7 +71,7 @@ const WaitlistForm = () => {
       
       // Make sure we use the full URL with https for mobile
       const healthUrl = isMobile ? 
-        'https://trycognito.app/api/health' : 
+        'https://www.trycognito.app/api/health' : 
         `${API_URL}/api/health`;
       
       setDebugInfo(prev => ({
@@ -88,7 +88,8 @@ const WaitlistForm = () => {
           'Accept': 'application/json',
           'User-Agent': navigator.userAgent
         },
-        cache: 'no-store' // Prevent caching issues on mobile
+        cache: 'no-store', // Prevent caching issues on mobile
+        mode: 'cors' // Explicitly set CORS mode
       });
       
       clearTimeout(timeoutId);
@@ -195,9 +196,9 @@ const WaitlistForm = () => {
     // Make sure we have a full URL with https:// for API submission
     const fullApiUrl = ensureFullUrl(API_URL);
     
-    // For mobile, explicitly use the production URL with https
+    // For mobile, explicitly use the production URL with https and www
     const submissionUrl = isMobile ? 
-      'https://trycognito.app/api/join-waitlist' : 
+      'https://www.trycognito.app/api/join-waitlist' : 
       `${fullApiUrl}/api/join-waitlist`;
     
     setDebugInfo(prev => ({
@@ -217,7 +218,8 @@ const WaitlistForm = () => {
         body: JSON.stringify({ email }),
         signal: controller.signal,
         credentials: 'omit', // Avoid cookies/credentials for simpler CORS
-        cache: 'no-store' // Prevent caching issues on mobile
+        cache: 'no-store', // Prevent caching issues on mobile
+        mode: 'cors' // Explicitly set CORS mode
       });
       
       clearTimeout(timeoutId);
@@ -249,8 +251,8 @@ const WaitlistForm = () => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
     
-    // Always use the production URL for mobile GET requests
-    const submissionUrl = `https://trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=false`;
+    // Always use the production URL with www for mobile GET requests
+    const submissionUrl = `https://www.trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=false`;
     
     setDebugInfo(prev => ({
       ...prev,
@@ -266,7 +268,8 @@ const WaitlistForm = () => {
         },
         signal: controller.signal,
         credentials: 'omit', // Avoid cookies/credentials for simpler CORS
-        cache: 'no-store' // Prevent caching issues
+        cache: 'no-store', // Prevent caching issues
+        mode: 'cors' // Explicitly set CORS mode
       });
       
       clearTimeout(timeoutId);

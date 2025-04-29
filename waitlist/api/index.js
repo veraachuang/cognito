@@ -29,10 +29,11 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
   res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
+  res.header('Access-Control-Max-Age', '86400'); // Cache preflight for 24 hours
   
   // Handling preflight OPTIONS requests more aggressively
   if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS preflight request');
+    console.log('Handling OPTIONS preflight request for path:', req.path);
     return res.status(204).set({
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -47,6 +48,11 @@ app.use((req, res, next) => {
 
 // Implement a special handler for redirection issues
 app.use((req, res, next) => {
+  // If this is an OPTIONS request, skip redirection and let the CORS handler deal with it
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
   // If the host is trycognito.app without www, redirect with CORS headers
   const host = req.headers.host || '';
   if (host === 'trycognito.app') {
@@ -69,8 +75,28 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
 
-// Add OPTIONS handler for preflight requests
-app.options('*', cors());
+// Add OPTIONS handler for each specific endpoint to ensure preflight works
+app.options('/api/join-waitlist', (req, res) => {
+  console.log('Handling specific OPTIONS for /api/join-waitlist');
+  res.status(204).set({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept, Origin',
+    'Access-Control-Max-Age': '86400',
+    'Content-Length': '0'
+  }).end();
+});
+
+app.options('/api/health', (req, res) => {
+  console.log('Handling specific OPTIONS for /api/health');
+  res.status(204).set({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept, Origin',
+    'Access-Control-Max-Age': '86400',
+    'Content-Length': '0'
+  }).end();
+});
 
 // Google Sheets setup
 const setupGoogleSheets = () => {

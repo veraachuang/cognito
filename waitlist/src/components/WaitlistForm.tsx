@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Send, Check, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Send, Check, AlertCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Use an environment variable with fallback to both production and local endpoints
+const API_URL = import.meta.env.VITE_API_URL || window.location.origin || 'http://localhost:3001';
 
 const WaitlistForm = () => {
   const [email, setEmail] = useState('');
@@ -9,6 +10,51 @@ const WaitlistForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [connectionError, setConnectionError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Check API connection on component mount and when retry is attempted
+  useEffect(() => {
+    if (retryCount > 0) {
+      checkApiConnection();
+    }
+  }, [retryCount]);
+
+  // Function to check API connection
+  const checkApiConnection = async () => {
+    try {
+      setIsLoading(true);
+      setConnectionError(false);
+      
+      // Try a simple HEAD request to check if the API is reachable
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5-second timeout
+      
+      const response = await fetch(`${API_URL}/api/join-waitlist`, {
+        method: 'HEAD',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        setConnectionError(false);
+      } else {
+        setConnectionError(true);
+        setErrorMessage('Server is reachable but returned an error. Please try again.');
+      }
+    } catch (error) {
+      console.error('API connection check failed:', error);
+      setConnectionError(true);
+      setErrorMessage(
+        error instanceof Error && error.name === 'AbortError'
+          ? 'Connection timed out. Please check your internet connection.'
+          : 'Could not connect to server. Please try again later.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const validateEmail = (email: string): boolean => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,17 +79,29 @@ const WaitlistForm = () => {
     setIsError(false);
     setErrorMessage('');
     setIsLoading(true);
+    setConnectionError(false);
     
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10-second timeout
+      
       const response = await fetch(`${API_URL}/api/join-waitlist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email }),
+        signal: controller.signal
       });
       
-      const data = await response.json();
+      clearTimeout(timeoutId);
+      
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = { error: 'Could not parse server response' };
+      }
       
       if (!response.ok) {
         throw new Error(data.error || 'Failed to join waitlist');
@@ -53,14 +111,29 @@ const WaitlistForm = () => {
     } catch (error) {
       console.error('Error joining waitlist:', error);
       setIsError(true);
-      setErrorMessage(
-        error instanceof Error 
-          ? error.message 
-          : 'Failed to join waitlist. Please try again.'
-      );
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          setConnectionError(true);
+          setErrorMessage('Request timed out. Please check your connection and try again.');
+        } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+          setConnectionError(true);
+          setErrorMessage('Network error. Please check your connection and try again.');
+        } else {
+          setErrorMessage(error.message);
+        }
+      } else {
+        setErrorMessage('Failed to join waitlist. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    setIsError(false);
+    setErrorMessage('');
   };
 
   return (
@@ -94,15 +167,34 @@ const WaitlistForm = () => {
             >
               {isLoading ? (
                 <>Loading<span className="animate-pulse">...</span></>
+              ) : connectionError ? (
+                <>Retry <RefreshCw className="h-4 w-4" /></>
               ) : (
                 <>Join <Send className="h-4 w-4" /></>
               )}
             </button>
           </div>
+          
           {isError && (
-            <div className="mt-2 text-red-600 text-sm flex items-center gap-1">
-              <AlertCircle className="h-3 w-3 flex-shrink-0" />
-              <span>{errorMessage}</span>
+            <div className="mt-3 text-red-600 text-sm flex items-start gap-2 bg-red-50 p-3 rounded-md border border-red-100">
+              {connectionError ? (
+                <WifiOff className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              )}
+              <div>
+                <p className="font-medium">{connectionError ? 'Connection Error' : 'Error'}</p>
+                <p className="mt-1">{errorMessage}</p>
+                {connectionError && (
+                  <button 
+                    type="button" 
+                    onClick={handleRetry}
+                    className="mt-2 text-red-700 bg-red-100 px-3 py-1 rounded-md hover:bg-red-200 transition-colors flex items-center gap-1 text-xs"
+                  >
+                    <RefreshCw className="h-3 w-3" /> Try Again
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </form>

@@ -5,7 +5,7 @@
   "installCommand": "npm ci --only=production",
   "framework": "vite",
   "routes": [
-    { "src": "/api/(.*)", "dest": "/server/server.js" },
+    { "src": "/api/(.*)", "dest": "/api/$1" },
     { "src": "/(.*)", "dest": "/$1" }
   ],
   "crons": [],
@@ -13,7 +13,7 @@
     "silent": true
   },
   "functions": {
-    "server/server.js": {
+    "api/**/*.js": {
       "memory": 1024,
       "maxDuration": 10
     }

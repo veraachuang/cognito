@@ -46,11 +46,22 @@ app.options('*', cors());
 const setupGoogleSheets = () => {
   let auth;
   
+  console.log('Setting up Google Sheets...');
+  
   // Use environment variables for credentials (Vercel)
   if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
     try {
-      // Replace escaped newlines with actual newlines in the private key
+      console.log('Google credentials found in environment variables');
+      
+      // Check if the private key looks valid (should have the right format)
       const privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
+      
+      if (!privateKey.includes('BEGIN PRIVATE KEY') || !privateKey.includes('END PRIVATE KEY')) {
+        console.error('Private key appears to be malformed - missing BEGIN/END markers');
+        console.log('Private key length:', privateKey.length);
+        console.log('First 20 chars:', privateKey.substring(0, 20) + '...');
+        throw new Error('Private key is malformed');
+      }
       
       const credentials = {
         type: 'service_account',
@@ -65,20 +76,33 @@ const setupGoogleSheets = () => {
         client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL
       };
       
+      // Check for missing required fields
+      const requiredFields = ['project_id', 'private_key_id', 'private_key', 'client_email'];
+      const missingFields = requiredFields.filter(field => !credentials[field]);
+      
+      if (missingFields.length > 0) {
+        console.error('Missing required credential fields:', missingFields);
+        throw new Error(`Missing credential fields: ${missingFields.join(', ')}`);
+      }
+      
       auth = new google.auth.GoogleAuth({
         credentials,
         scopes: ['https://www.googleapis.com/auth/spreadsheets']
       });
       
-      console.log('Using Google credentials from environment variables');
+      console.log('Successfully created Google auth object');
+      return auth;
     } catch (error) {
-      console.error('Error setting up credentials:', error);
+      console.error('Error setting up Google credentials:', error.message);
+      console.error('Stack trace:', error.stack);
+      // Return null so calling code can handle the error appropriately
+      return null;
     }
   } else {
     console.error('Google credentials not found in environment variables');
+    console.error('Available env vars:', Object.keys(process.env).filter(key => key.startsWith('GOOGLE')));
+    return null;
   }
-  
-  return auth;
 };
 
 // Basic health endpoint - mobile-friendly and no auth required
@@ -101,11 +125,50 @@ app.get('/', (req, res) => {
   });
 });
 
+// Add a diagnostic route to check environment variables and Google Sheets connection
+app.get('/api/diagnostic', (req, res) => {
+  // Don't expose full environment variables in production
+  const safeEnv = {
+    NODE_ENV: process.env.NODE_ENV,
+    SPREADSHEET_ID: process.env.SPREADSHEET_ID ? 'Set' : 'Not set',
+    SHEET_NAME: process.env.SHEET_NAME ? 'Set' : 'Not set',
+    GOOGLE_CLIENT_EMAIL: process.env.GOOGLE_CLIENT_EMAIL ? 'Set' : 'Not set',
+    GOOGLE_PRIVATE_KEY: process.env.GOOGLE_PRIVATE_KEY ? 'Set (length: ' + 
+      (process.env.GOOGLE_PRIVATE_KEY ? process.env.GOOGLE_PRIVATE_KEY.length : 0) + ')' : 'Not set',
+    GOOGLE_PROJECT_ID: process.env.GOOGLE_PROJECT_ID ? 'Set' : 'Not set',
+  };
+  
+  // Test Google Sheets auth setup
+  let authStatus = 'Not tested';
+  try {
+    const auth = setupGoogleSheets();
+    authStatus = auth ? 'Authentication object created successfully' : 'Failed to create auth object';
+  } catch (error) {
+    authStatus = 'Error creating auth: ' + error.message;
+  }
+  
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    envVars: safeEnv,
+    authStatus: authStatus,
+    // Include simple server info
+    server: {
+      platform: process.platform,
+      arch: process.arch,
+      nodeVersion: process.version,
+      uptime: process.uptime()
+    }
+  });
+});
+
 // Helper function for adding to the waitlist
 const addToWaitlist = async (email) => {
   if (!email) {
     throw new Error('Email is required');
   }
+  
+  console.log('Starting waitlist process for email:', email);
   
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -113,27 +176,40 @@ const addToWaitlist = async (email) => {
     throw new Error('Invalid email format');
   }
   
+  // Check environment variables first
+  if (!process.env.SPREADSHEET_ID) {
+    console.error('SPREADSHEET_ID environment variable is missing');
+    throw new Error('Configuration error: Spreadsheet ID is missing');
+  }
+  
+  if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+    console.error('Google credentials missing:', {
+      clientEmail: process.env.GOOGLE_CLIENT_EMAIL ? 'Present' : 'Missing',
+      privateKey: process.env.GOOGLE_PRIVATE_KEY ? 'Present' : 'Missing'
+    });
+    throw new Error('Configuration error: Google credentials are missing');
+  }
+  
   // Initialize Google Sheets API
   const auth = setupGoogleSheets();
   if (!auth) {
+    console.error('Failed to create Google auth object');
     throw new Error('Failed to initialize Google Sheets API');
   }
   
   // For debugging/logging
-  console.log('Attempting to add email to spreadsheet:', email);
+  console.log('Auth created, attempting to add email to spreadsheet:', email);
   
   const sheets = google.sheets({ version: 'v4', auth });
   const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
   const SHEET_NAME = process.env.SHEET_NAME || 'Sheet1';
   
-  if (!SPREADSHEET_ID) {
-    throw new Error('Spreadsheet ID is missing');
-  }
-  
   // Add timestamp
   const timestamp = new Date().toISOString();
   
   try {
+    console.log(`Sending request to Google Sheets API - Spreadsheet ID: ${SPREADSHEET_ID}, Sheet: ${SHEET_NAME}`);
+    
     // Append to Google Sheet
     const response = await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
@@ -145,10 +221,37 @@ const addToWaitlist = async (email) => {
       }
     });
     
-    console.log('Successfully added to spreadsheet, response:', response.status);
-    return { message: 'Successfully added to waitlist' };
+    console.log('Google Sheets API response:', {
+      statusCode: response.status,
+      statusText: response.statusText,
+      data: response.data
+    });
+    
+    if (response.status !== 200) {
+      throw new Error(`Google Sheets API returned status ${response.status}: ${response.statusText}`);
+    }
+    
+    return { 
+      message: 'Successfully added to waitlist',
+      email: email,
+      timestamp: timestamp
+    };
   } catch (error) {
-    console.error('Google Sheets API error:', error);
+    console.error('Google Sheets API error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      errors: error.errors || 'No error details',
+    });
+    
+    if (error.response) {
+      console.error('Google API error response:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      });
+    }
+    
     throw new Error(`Google Sheets API error: ${error.message}`);
   }
 };
@@ -160,7 +263,32 @@ app.post('/api/join-waitlist', async (req, res) => {
     console.log('POST request headers:', req.headers);
     console.log('POST request body:', req.body);
     
-    const email = req.body.email;
+    // Safeguard against undefined email
+    let email = null;
+    
+    // Check where the email might be
+    if (req.body && typeof req.body === 'object') {
+      email = req.body.email;
+    } else if (typeof req.body === 'string') {
+      // Try to parse the body if it's a string
+      try {
+        const parsedBody = JSON.parse(req.body);
+        email = parsedBody.email;
+      } catch (e) {
+        console.error('Failed to parse request body:', e);
+      }
+    }
+    
+    // Still no email? Check query params as a last resort
+    if (!email && req.query && req.query.email) {
+      email = req.query.email;
+    }
+    
+    // Give up if we still don't have an email
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required but was not found in request' });
+    }
+    
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(req.headers['user-agent'] || '');
     
     console.log('Received waitlist request:', { email, isMobile });

@@ -116,7 +116,7 @@
     }
     
     // Update direct link 
-    document.getElementById('directLink').href = `https://trycognito.app/api/join-waitlist?direct=true`;
+    document.getElementById('directLink').href = `https://www.trycognito.app/api/join-waitlist?direct=true`;
     
     // Test health endpoint
     document.getElementById('testHealthBtn').addEventListener('click', async () => {
@@ -129,7 +129,7 @@
         showStatus('healthStatus', 'loading', 'Testing connection...');
         healthResult.style.display = 'none';
         
-        const healthUrl = `https://trycognito.app/api/health`;
+        const healthUrl = `https://www.trycognito.app/api/health`;
         
         console.log('Testing health endpoint:', healthUrl);
         
@@ -188,7 +188,7 @@
         showStatus('submitStatus', 'loading', 'Testing submission...');
         submitResult.style.display = 'none';
         
-        const submissionUrl = `https://trycognito.app/api/join-waitlist`;
+        const submissionUrl = `https://www.trycognito.app/api/join-waitlist`;
         
         console.log('Testing submission endpoint:', submissionUrl);
         console.log('Payload:', { email });
@@ -244,7 +244,7 @@
       try {
         showStatus('submitStatus', 'loading', 'Trying GET fallback method...');
         
-        const fallbackUrl = `https://trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=false`;
+        const fallbackUrl = `https://www.trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=false`;
         console.log('Trying fallback GET method:', fallbackUrl);
         
         const fallbackResponse = await fetch(fallbackUrl, {
@@ -272,14 +272,14 @@
           showResult('submitResult', fallbackData);
           
           // Update direct link with the email
-          document.getElementById('directLink').href = `https://trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=true`;
+          document.getElementById('directLink').href = `https://www.trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=true`;
         }
       } catch (fallbackError) {
         console.error('Fallback submission failed:', fallbackError);
         showStatus('submitStatus', 'error', `Both submission methods failed: ${fallbackError.message}`);
         
         // Update direct link with the email
-        document.getElementById('directLink').href = `https://trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=true`;
+        document.getElementById('directLink').href = `https://www.trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=true`;
       }
     }
   </script>

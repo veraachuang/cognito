@@ -103,7 +103,7 @@
       const directFormLink = document.getElementById('directFormLink');
       
       // Update direct link with the email
-      directFormLink.href = `https://trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=true`;
+      directFormLink.href = `https://www.trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=true`;
       
       // Simple validation
       if (!email || !email.includes('@')) {
@@ -133,7 +133,7 @@
       
       // First try POST method (most ideal)
       try {
-        const response = await fetch('https://trycognito.app/api/join-waitlist', {
+        const response = await fetch('https://www.trycognito.app/api/join-waitlist', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -164,7 +164,7 @@
           status.className = 'status loading';
           status.textContent = 'Trying alternative method...';
           
-          const fallbackUrl = `https://trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=false`;
+          const fallbackUrl = `https://www.trycognito.app/api/join-waitlist?email=${encodeURIComponent(email)}&direct=false`;
           const fallbackResponse = await fetch(fallbackUrl, {
             method: 'GET',
             credentials: 'omit',

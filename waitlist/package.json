@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "server": "cd server && npm run dev",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
-    "start": "npm run build && cd server && npm start"
+    "start": "npm run build"
   },
   "dependencies": {
     "axios": "^1.6.7",

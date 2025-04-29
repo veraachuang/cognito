@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm run dev:all",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm ci --only=production",
   "framework": "vite",

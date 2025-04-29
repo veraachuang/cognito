@@ -1,175 +1,32 @@
-//background.js
-console.log('chrome.identity is', chrome.identity);
+/*
+ * ATTENTION: The "eval" devtool has been used (maybe by default in mode: "development").
+ * This devtool is neither made for production nor for readable output files.
+ * It uses "eval()" calls to create a separate source file in the browser devtools.
+ * If you are trying to read the output file, select a different devtool (https://webpack.js.org/configuration/devtool/)
+ * or disable the default devtool with "devtool: false".
+ * If you are looking for production-ready output files, see mode: "production" (https://webpack.js.org/configuration/mode/).
+ */
+/******/ (() => { // webpackBootstrap
+/******/ 	var __webpack_modules__ = ({
 
-// Function to forcefully clear all tokens
-function forceTokenReset(callback) {
-  chrome.identity.getAuthToken({ interactive: false }, (token) => {
-    if (token) {
-      console.log('[Cognito] Found existing token, revoking it');
-      // First remove it from Chrome's cache
-      chrome.identity.removeCachedAuthToken({ token }, () => {
-        // Then tell Google to revoke it
-        fetch(`https://accounts.google.com/o/oauth2/revoke?token=${token}`)
-          .then(() => {
-            console.log('[Cognito] Successfully revoked token');
-            // Clear any other cached tokens
-            chrome.identity.clearAllCachedAuthTokens(() => {
-              console.log('[Cognito] Cleared all cached auth tokens');
-              if (callback) callback();
-            });
-          })
-          .catch(err => {
-            console.error('[Cognito] Error revoking token:', err);
-            chrome.identity.clearAllCachedAuthTokens(() => {
-              console.log('[Cognito] Cleared all cached auth tokens after revoke error');
-              if (callback) callback();
-            });
-          });
-      });
-    } else {
-      console.log('[Cognito] No token found to revoke');
-      chrome.identity.clearAllCachedAuthTokens(() => {
-        console.log('[Cognito] Cleared all auth tokens anyway');
-        if (callback) callback();
-      });
-    }
-  });
-}
+/***/ "./js/background.js":
+/*!**************************!*\
+  !*** ./js/background.js ***!
+  \**************************/
+/***/ (() => {
 
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('[Cognito] Extension installed.');
-  forceTokenReset(() => {
-    console.log('[Cognito] Tokens reset on extension install/update');
-  });
-});
+eval("//background.js\nconsole.log('[Cognito] Background script loaded');\n\n// Global variable to keep track of whether we've already tried to revoke and refresh tokens\nlet hasTriedTokenRefresh = false;\n\nchrome.runtime.onInstalled.addListener(() => {\n  console.log('[Cognito] Extension installed');\n  hasTriedTokenRefresh = false;\n  \n  revokeAndClearAllTokens(() => {\n    console.log('[Cognito] All tokens cleared on install');\n  });\n});\n\n// Function to revoke and clear all tokens\nfunction revokeAndClearAllTokens(callback) {\n  // First try to get the current token\n  chrome.identity.getAuthToken({ interactive: false }, function(token) {\n    if (token) {\n      console.log('[Cognito] Found token to revoke');\n      // Revoke the token on Google's servers\n      fetch(`https://accounts.google.com/o/oauth2/revoke?token=${token}`)\n      .then(() => {\n        console.log('[Cognito] Successfully revoked token');\n      })\n      .catch(error => {\n        console.error('[Cognito] Error revoking token:', error);\n      })\n      .finally(() => {\n        // Remove from Chrome's cache\n        chrome.identity.removeCachedAuthToken({ token }, () => {\n          console.log('[Cognito] Removed token from cache');\n          if (callback) {\n            callback();\n          }\n        });\n      });\n    } else {\n      // No token found, just call the callback\n      console.log('[Cognito] No token found to revoke');\n      if (callback) {\n        callback();\n      }\n    }\n  });\n}\n\nchrome.runtime.onMessage.addListener((request, sender, sendResponse) => {\n  console.log('[Cognito] Message received:', request.action);\n\n  // Handle reading document text\n  if (request.action === \"getDocText\") {\n    chrome.identity.getAuthToken({ interactive: true }, function(token) {\n      if (chrome.runtime.lastError || !token) {\n        console.error('[Cognito] Auth error:', chrome.runtime.lastError);\n        sendResponse({ error: chrome.runtime.lastError?.message || 'No token retrieved' });\n        return;\n      }\n\n      const docId = request.docId;\n      fetch(`https://docs.googleapis.com/v1/documents/${docId}?fields=body.content`, {\n        headers: { Authorization: `Bearer ${token}` },\n      })\n        .then(res => res.json())\n        .then(data => {\n          const text = data.body.content\n            .map(el => el.paragraph?.elements?.map(e => e.textRun?.content).join('') || '')\n            .join('\\n');\n          sendResponse({ text });\n        })\n        .catch(err => sendResponse({ error: err.message }));\n    });\n\n    return true;\n  }\n\n  // Handle insertOutlineWithAPI action - enhanced API-based insertion method\n  if (request.action === \"insertOutlineWithAPI\") {\n    console.log('[Cognito] Received insertOutlineWithAPI request:', {\n      docId: request.docId,\n      contentLength: request.content ? request.content.length : 0,\n      contentPreview: request.content ? request.content.substring(0, 100) + '...' : 'EMPTY'\n    });\n    \n    const docId = request.docId;\n    const content = request.content;\n    \n    if (!docId) {\n      console.error('[Cognito] Missing docId parameter');\n      sendResponse({ \n        success: false, \n        error: 'Missing document ID'\n      });\n      return true;\n    }\n    \n    if (!content || !content.trim()) {\n      console.error('[Cognito] Missing or empty content parameter');\n      sendResponse({ \n        success: false, \n        error: 'Missing or empty content'\n      });\n      return true;\n    }\n    \n    console.log('[Cognito] Inserting outline into document with simplified flow:', docId);\n    \n    // Use a simplified approach - get token directly\n    chrome.identity.getAuthToken({ interactive: true }, (token) => {\n      if (chrome.runtime.lastError || !token) {\n        console.error('[Cognito] Error getting auth token:', chrome.runtime.lastError);\n        sendResponse({ \n          success: false, \n          error: 'Authentication failed: ' + \n                 (chrome.runtime.lastError?.message || 'No token retrieved')\n        });\n        return;\n      }\n      \n      console.log('[Cognito] Got token, proceeding with direct document update');\n      \n      // Create a simple request to insert text - use the beginning of the document\n      const requestBody = {\n        requests: [\n          {\n            insertText: {\n              location: {\n                index: 1  // Start of the document (after initial position 0)\n              },\n              text: content\n            }\n          }\n        ]\n      };\n      \n      fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {\n        method: 'POST',\n        headers: {\n          'Authorization': `Bearer ${token}`,\n          'Content-Type': 'application/json'\n        },\n        body: JSON.stringify(requestBody)\n      })\n      .then(response => {\n        console.log('[Cognito] API response status:', response.status, response.statusText);\n        \n        if (!response.ok) {\n          return response.text().then(text => {\n            console.error('[Cognito] API error response:', text);\n            throw new Error(`API error (${response.status}): ${text}`);\n          });\n        }\n        return response.json();\n      })\n      .then(data => {\n        console.log('[Cognito] Document update success:', data);\n        sendResponse({ success: true });\n      })\n      .catch(error => {\n        console.error('[Cognito] Error in direct document update:', error);\n        \n        // Try revoking the token and getting a new one\n        chrome.identity.removeCachedAuthToken({ token }, () => {\n          console.log('[Cognito] Token revoked, trying with new token');\n          \n          chrome.identity.getAuthToken({ interactive: true }, (newToken) => {\n            if (chrome.runtime.lastError || !newToken) {\n              console.error('[Cognito] Error getting new token:', chrome.runtime.lastError);\n              sendResponse({ \n                success: false, \n                error: 'Authentication failed on retry: ' + \n                      (chrome.runtime.lastError?.message || 'No token retrieved')\n              });\n              return;\n            }\n            \n            // Try again with the new token\n            fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {\n              method: 'POST',\n              headers: {\n                'Authorization': `Bearer ${newToken}`,\n                'Content-Type': 'application/json'\n              },\n              body: JSON.stringify(requestBody)\n            })\n            .then(response => {\n              if (!response.ok) {\n                return response.text().then(text => {\n                  throw new Error(`API error on retry (${response.status}): ${text}`);\n                });\n              }\n              return response.json();\n            })\n            .then(data => {\n              console.log('[Cognito] Document update success on retry:', data);\n              sendResponse({ success: true });\n            })\n            .catch(finalError => {\n              console.error('[Cognito] Final error after token refresh:', finalError);\n              sendResponse({ \n                success: false, \n                error: 'API error: ' + finalError.message\n              });\n            });\n          });\n        });\n      });\n    });\n    \n    return true;\n  }\n  \n  // Legacy insertOutlineSimple handler - redirect to the new API method\n  if (request.action === \"insertOutlineSimple\") {\n    console.log('[Cognito] Redirecting legacy outline insertion to API method');\n    \n    // Modified approach to handle legacy requests\n    const docId = request.docId;\n    const content = request.content;\n    \n    // Simply call the same code path as insertOutlineWithAPI\n    if (!docId || !content) {\n      sendResponse({ \n        success: false, \n        error: 'Missing required parameters'\n      });\n      return true;\n    }\n    \n    // Use the same implementation as insertOutlineWithAPI\n    refreshAndGetToken()\n      .then(token => {\n        console.log('[Cognito] Obtained fresh token for API access (legacy path)');\n        \n        return checkDocumentAccess(docId, token)\n          .then(accessInfo => {\n            if (!accessInfo.canWrite) {\n              throw new Error(`Permission denied: ${accessInfo.message}. You need edit access to this document.`);\n            }\n            \n            return insertTextIntoDocument(docId, content, token);\n          });\n      })\n      .then(response => {\n        console.log('[Cognito] Document updated successfully via legacy path:', response);\n        sendResponse({ success: true });\n      })\n      .catch(error => {\n        console.error('[Cognito] Error in legacy handler:', error);\n        sendResponse({ \n          success: false, \n          error: formatErrorMessage(error),\n          details: error.details || error.message\n        });\n      });\n    \n    return true;\n  }\n  \n  // Default response for unhandled actions\n  sendResponse({ success: false, error: 'Unrecognized action' });\n  return true;\n});\n\n/**\n * More aggressive token invalidation when standard methods don't work\n * This is useful in environments with stricter security policies\n */\nfunction forceTokenInvalidation() {\n  return new Promise((resolve, reject) => {\n    // First try to get the current token without prompting user\n    chrome.identity.getAuthToken({ interactive: false }, function(token) {\n      if (chrome.runtime.lastError || !token) {\n        // No existing token found, nothing to invalidate\n        console.log('[Cognito] No existing token found, skipping invalidation');\n        resolve(null);\n        return;\n      }\n      \n      console.log('[Cognito] Found token, attempting to invalidate');\n      \n      // Approach 1: First try Chrome's built-in method\n      chrome.identity.removeCachedAuthToken({ token }, function() {\n        if (chrome.runtime.lastError) {\n          console.warn('[Cognito] Error removing cached token:', chrome.runtime.lastError.message);\n          // Continue with other approaches\n        }\n        \n        // Approach 2: Try to revoke the token on Google's servers\n        fetch(`https://accounts.google.com/o/oauth2/revoke?token=${token}`, {\n          method: 'GET',\n          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }\n        })\n        .then(response => {\n          if (response.ok) {\n            console.log('[Cognito] Successfully revoked token on Google servers');\n          } else {\n            console.warn('[Cognito] Error revoking token on Google servers:', response.status);\n          }\n          \n          // Even if revocation failed, consider token invalidated for our purposes\n          resolve(token);\n        })\n        .catch(error => {\n          console.warn('[Cognito] Network error during token revocation:', error);\n          // Continue treating the token as invalidated\n          resolve(token);\n        });\n      });\n    });\n  });\n}\n\n// Inside the refreshAndGetToken function, add a fallback mechanism:\nfunction refreshAndGetToken() {\n  return new Promise((resolve, reject) => {\n    // First attempt using standard approach\n    getAndClearExistingToken()\n      .then(() => {\n        return getNewToken();\n      })\n      .then(token => {\n        resolve(token);\n      })\n      .catch(error => {\n        console.warn('[Cognito] Error with standard token approach:', error);\n        console.log('[Cognito] Trying fallback token approach');\n        \n        // Fallback approach: More aggressive token invalidation\n        forceTokenInvalidation()\n          .then(() => {\n            // Now try to get a completely fresh token\n            chrome.identity.getAuthToken({ interactive: true }, function(token) {\n              if (chrome.runtime.lastError || !token) {\n                reject(new Error('Failed to get authentication token after fallback: ' + \n                                (chrome.runtime.lastError?.message || 'No token retrieved')));\n              } else {\n                resolve(token);\n              }\n            });\n          })\n          .catch(fallbackError => {\n            reject(fallbackError);\n          });\n      });\n  });\n}\n\n/**\n * Helper function to get and clear an existing token\n */\nfunction getAndClearExistingToken() {\n  return new Promise((resolve, reject) => {\n    chrome.identity.getAuthToken({ interactive: false }, function(existingToken) {\n      if (chrome.runtime.lastError) {\n        console.log('[Cognito] No existing token found or error:', chrome.runtime.lastError.message);\n        resolve();\n        return;\n      }\n      \n      if (!existingToken) {\n        console.log('[Cognito] No existing token found');\n        resolve();\n        return;\n      }\n      \n      // Token exists, remove it\n      console.log('[Cognito] Removing existing token');\n      chrome.identity.removeCachedAuthToken({ token: existingToken }, function() {\n        if (chrome.runtime.lastError) {\n          console.warn('[Cognito] Error removing token:', chrome.runtime.lastError.message);\n        }\n        resolve();\n      });\n    });\n  });\n}\n\n/**\n * Helper function to get a new token\n */\nfunction getNewToken() {\n  return new Promise((resolve, reject) => {\n    chrome.identity.getAuthToken({ interactive: true }, function(token) {\n      if (chrome.runtime.lastError || !token) {\n        const error = chrome.runtime.lastError \n          ? chrome.runtime.lastError.message \n          : 'No token retrieved';\n        console.error('[Cognito] Failed to get auth token:', error);\n        reject(new Error('Failed to get authentication token: ' + error));\n      } else {\n        console.log('[Cognito] Successfully obtained new token');\n        resolve(token);\n      }\n    });\n  });\n}\n\n/**\n * Format error messages for better user understanding\n */\nfunction formatErrorMessage(error) {\n  // Check for common error patterns and provide more user-friendly messages\n  if (error.status === 403) {\n    return 'Permission denied: You need edit access to this document';\n  } else if (error.status === 401) {\n    return 'Authentication error: Please try again or reload the extension';\n  } else if (error.status === 404) {\n    return 'Document not found: The document may have been deleted or moved';\n  } else if (error.details && error.details.includes('Rate Limit Exceeded')) {\n    return 'API rate limit exceeded: Please try again in a moment';\n  }\n  \n  // Default error message\n  return error.message || 'An unknown error occurred';\n}\n\n/**\n * Enhanced function to check document access with more detailed information\n */\nfunction checkDocumentAccess(docId, token) {\n  return fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {\n    headers: { Authorization: `Bearer ${token}` }\n  })\n  .then(response => {\n    if (!response.ok) {\n      if (response.status === 403) {\n        return { canWrite: false, message: 'No permission to edit this document' };\n      } else if (response.status === 404) {\n        return { canWrite: false, message: 'Document not found' };\n      }\n      throw new Error(`Could not access document: ${response.status}`);\n    }\n    return response.json();\n  })\n  .then(data => {\n    // If we can get document details, check if we have edit capabilities\n    // In Google Docs API, if we can read the document content, we likely have at least read access\n    return { \n      canWrite: true, \n      title: data.title || 'Unnamed Document',\n      message: 'Document access verified'\n    };\n  })\n  .catch(error => {\n    console.error('[Cognito] Error checking document access:', error);\n    return { \n      canWrite: false, \n      message: error.message || 'Could not verify document access'\n    };\n  });\n}\n\n/**\n * Enhanced function to insert text into a Google Doc with better error handling\n */\nfunction insertTextIntoDocument(docId, content, token) {\n  // Create a request to insert the text at the beginning of the document\n  const requestBody = {\n    requests: [\n      {\n        insertText: {\n          location: {\n            index: 1  // Start of the document (after initial position 0)\n          },\n          text: content\n        }\n      }\n    ]\n  };\n  \n  console.log('[Cognito] Sending batchUpdate request to Google Docs API');\n  \n  return fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {\n    method: 'POST',\n    headers: {\n      'Authorization': `Bearer ${token}`,\n      'Content-Type': 'application/json'\n    },\n    body: JSON.stringify(requestBody)\n  })\n  .then(response => {\n    console.log('[Cognito] API response status:', response.status);\n    \n    if (!response.ok) {\n      return response.text().then(text => {\n        console.error('[Cognito] API error response:', text);\n        \n        // Create a detailed error object\n        const error = new Error(`API error: ${response.status}`);\n        error.status = response.status;\n        error.details = text;\n        throw error;\n      });\n    }\n    return response.json();\n  });\n}\n\n\n//# sourceURL=webpack://cognito-extension/./js/background.js?");
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('[Cognito] Message received in background:', request);
+/***/ })
 
-  if (request.action === "getDocText") {
-    chrome.identity.getAuthToken({ interactive: true }, (token) => {
-      if (chrome.runtime.lastError || !token) {
-        sendResponse({ error: chrome.runtime.lastError?.message || 'No token retrieved.' });
-        return;
-      }
-
-      const docId = request.docId;
-      fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          const text = data.body.content
-            .map(el => el.paragraph?.elements?.map(e => e.textRun?.content).join('') || '')
-            .join('\n');
-          sendResponse({ text });
-        })
-        .catch((err) => sendResponse({ error: err.message }));
-    });
-
-    return true;
-  }
-  
-  // Handle inserting outline into a Google Doc
-  if (request.action === "insertOutline") {
-    const docId = request.docId;
-    const content = request.content;
-    
-    if (!docId || !content) {
-      sendResponse({ success: false, error: 'Missing required parameters' });
-      return true;
-    }
-    
-    // Force reset tokens to ensure we get a clean one with the right permissions
-    forceTokenReset(() => {
-      console.log('[Cognito] Tokens reset before requesting new one for document insertion');
-      
-      // Request a new token with explicit scopes
-      chrome.identity.getAuthToken({ 
-        interactive: true,
-        scopes: ['https://www.googleapis.com/auth/documents']
-      }, (token) => {
-        if (chrome.runtime.lastError || !token) {
-          console.error('[Cognito] Error getting token:', chrome.runtime.lastError);
-          sendResponse({ 
-            success: false, 
-            error: chrome.runtime.lastError?.message || 'Failed to authenticate with Google'
-          });
-          return;
-        }
-        
-        console.log('[Cognito] Got new token for document insertion:', token.substring(0, 5) + '...');
-        
-        // Prepare the request to insert content at current cursor position
-        const requestBody = {
-          requests: [
-            {
-              insertText: {
-                // Insert at end of document as a fallback location
-                endOfSegmentLocation: {
-                  segmentId: ""
-                },
-                text: content
-              }
-            }
-          ]
-        };
-        
-        console.log('[Cognito] Sending request to Google Docs API:', JSON.stringify(requestBody));
-        
-        // Send request to Google Docs API
-        fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
-          method: 'POST',
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(requestBody)
-        })
-        .then(response => {
-          console.log('[Cognito] Got response from API:', response.status);
-          
-          if (!response.ok) {
-            // Check if it's an authorization issue
-            if (response.status === 401 || response.status === 403) {
-              console.error('[Cognito] Auth error, invalidating token');
-              // Invalidate the token and try again
-              forceTokenReset(() => {
-                console.log('[Cognito] Forcefully removed invalid token, user should try again');
-              });
-            }
-            
-            return response.text().then(text => {
-              console.error('[Cognito] API error details:', text);
-              throw new Error(`API error: ${response.status} - ${text}`);
-            });
-          }
-          return response.json();
-        })
-        .then(data => {
-          console.log('[Cognito] Document updated successfully:', data);
-          sendResponse({ success: true });
-        })
-        .catch(error => {
-          console.error('[Cognito] Error updating document:', error);
-          sendResponse({ 
-            success: false, 
-            error: error.message || 'Failed to update document'
-          });
-        });
-      });
-    });
-    
-    return true;
-  }
-  
-  // Add a debug action to force token reset for testing
-  if (request.action === "resetTokens") {
-    forceTokenReset(() => {
-      sendResponse({ success: true, message: "Tokens successfully reset" });
-    });
-    return true;
-  }
-
-  sendResponse({ success: false, error: 'No matching action' });
-});
+/******/ 	});
+/************************************************************************/
+/******/ 	
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module can't be inlined because the eval devtool is used.
+/******/ 	var __webpack_exports__ = {};
+/******/ 	__webpack_modules__["./js/background.js"]();
+/******/ 	
+/******/ })()
+;

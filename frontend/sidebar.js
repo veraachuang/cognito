@@ -6,6 +6,19 @@ async function getSecretKey() {
   return data.key;
 }
 
+document.getElementById("add-docs-button")?.addEventListener("click", () => {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".pdf,.doc,.docx";
+  input.multiple = true;
+  input.onchange = (e) => {
+    const files = e.target.files;
+    console.log("Files selected:", files);
+  };
+  input.click();
+});
+
+
 let DOC_ID = null;  
 console.log('[Cognito] Sidebar script loaded');
 window.parent.postMessage({ action: 'sidebarReady' }, '*');
@@ -43,10 +56,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tabId === 'braindump') {
       analyzeText(braindumpInput.value);
     }
+
   }
 
   // Automatically select the "upload" tab when the sidebar loads
-  switchTab('upload');
+  switchTab('braindump');
 
   closeBtn.addEventListener('click', () => {
     window.parent.postMessage({ action: 'closeSidebar' }, '*');

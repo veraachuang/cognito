@@ -14,15 +14,16 @@
     </div>
 
     <div class="tabs">
-      <button class="tab-button" data-tab="upload">Upload</button>
       <button class="tab-button" data-tab="braindump">Brain Dump</button>
-      <button class="tab-button" data-tab="outline">Outline</button>
       <button class="tab-button" data-tab="analysis">Analysis</button>
-    </div>
+      <button id="add-docs-button" class="icon-button" title="Add Document">
+    <i class="fas fa-plus"></i>
+  </button>
+</div>
 
     <div class="tab-content">
       <!-- Upload Tab -->
-      <div id="upload" class="tab-panel">
+      <!-- <div id="upload" class="tab-panel">
         <div class="upload-section">
           <h2>Upload Reference Documents</h2>
           <p>Upload your previous writing samples to help AI understand your style.</p>
@@ -33,10 +34,8 @@
             <input type="file" id="file-input" multiple accept=".doc,.docx,.pdf" style="display: none;">
           </div>
           <div class="file-list" id="uploaded-files">
-            <!-- Files will be listed here -->
-          </div>
-        </div>
-      </div>
+            Files will be listed here -->
+          
 
       <!-- Brain Dump Tab -->
       <div id="braindump" class="tab-panel">
@@ -79,20 +78,20 @@
         </div>
       </div>
 
-      <!-- Outline Tab -->
+      <!-- Outline Tab
       <div id="outline" class="tab-panel">
         <div class="outline-section">
           <h2>Generated Outline</h2>
           <div id="outline-container">
             <!-- Outline will be generated here -->
-            <p class="empty-state">Complete the brain dump to generate an outline</p>
+            <!-- <p class="empty-state">Complete the brain dump to generate an outline</p>
           </div>
           <div class="outline-actions">
             <button id="regenerate-outline" class="secondary-button"><i class="fas fa-redo"></i> Regenerate</button>
             <button id="apply-outline" class="primary-button"><i class="fas fa-check"></i> Apply to Document</button>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <!-- Analysis Tab -->
       <div id="analysis" class="tab-panel">

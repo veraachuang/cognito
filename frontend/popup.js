@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['content.js']
+        files: ['frontend/content.js']
       });
       await chrome.tabs.sendMessage(tab.id, message);
     }

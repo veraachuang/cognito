@@ -1,7 +1,20 @@
+# Node
+node_modules/
+package-lock.json
+
+# Python
 venv/
-.aider*
+__pycache__/
+
+# Build
+dist/
+*.map
+
+# Secrets
 .env
-pub.pem
-frontend.pem
-backend/.env
-node_modules
+
+# System
+.DS_Store
+
+# Editor
+.vscode/

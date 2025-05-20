@@ -29,7 +29,7 @@
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://api.openai.com https://docs.googleapis.com https://www.googleapis.com https://accounts.google.com http://localhost:5000 http://localhost:3001"
   },
   "action": {
-    "default_popup": "dist/popup.html",
+    "default_popup": "frontend/popup.html",
     "default_icon": {
       "16": "frontend/assets/icon16.png",
       "48": "frontend/assets/icon48.png",

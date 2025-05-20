@@ -2,6 +2,8 @@ const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = {
+  mode: 'development',
+  devtool: 'source-map',
   entry: {
     sidebar: './sidebar.js',
     content: './content.js',
